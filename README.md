@@ -1,5 +1,8 @@
 # zigpy-cc
 
+[![Build Status](https://travis-ci.org/sanyatuning/zigpy-cc.svg?branch=master)](https://travis-ci.org/sanyatuning/zigpy-cc)
+[![Coverage](https://coveralls.io/repos/github/sanyatuning/zigpy-cc/badge.svg?branch=master)](https://coveralls.io/github/sanyatuning/zigpy-cc?branch=master)
+
 [zigpy-cc](https://github.com/sanyatuning/zigpy-cc) is a Python 3 implementation for the [Zigpy](https://github.com/zigpy/) project to implement Texas Instruments CC2531 based [Zigbee](https://www.zigbee.org) radio devices.
 
 The goal of this project to add native support for the CC25xx based ZigBee modules in Home Assistant via [Zigpy](https://github.com/zigpy/).
