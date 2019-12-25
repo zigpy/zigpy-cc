@@ -1,0 +1,257 @@
+import asyncio
+import logging
+import serial
+import binascii
+
+import serial_asyncio
+
+from zigpy_cc.definition import Definition
+from zigpy_cc.types import CommandType, ParameterType
+
+LOGGER = logging.getLogger(__name__)
+
+DataStart = 4
+SOF = 0xFE
+
+PositionDataLength = 1
+PositionCmd0 = 2
+PositionCmd1 = 3
+
+MinMessageLength = 5
+MaxDataSize = 250
+
+
+class Gateway(asyncio.Protocol):
+    END = b'0xFE'
+
+    DataStart = 4
+
+    PositionDataLength = 1
+    PositionCmd0 = 2
+    PositionCmd1 = 3
+
+    MinMessageLength = 5
+    MaxDataSize = 250
+
+    def __init__(self, api, connected_future=None):
+        self._parser = Parser()
+        self._connected_future = connected_future
+        self._api = api
+
+    def connection_made(self, transport: asyncio.Transport):
+        """Callback when the uart is connected"""
+        LOGGER.debug("Connection made")
+        self._transport = transport
+        if self._connected_future:
+            self._connected_future.set_result(True)
+
+    def close(self):
+        self._transport.close()
+
+    def write(self, data):
+        self._transport.write(data)
+
+    def send(self, frame):
+        """Send data, taking care of escaping and framing"""
+        LOGGER.debug("Send: 0x%s", frame)
+        data = frame.to_buffer()
+        self._transport.write(data)
+
+    def data_received(self, data):
+        """Callback when there is data received from the uart"""
+        for b in data:
+            frame = self._parser.write(b)
+            if frame is not None:
+                LOGGER.debug("Frame received: %s", frame)
+                self._api.data_received(frame)
+
+        # self._buffer += data
+        # while self._buffer:
+        #     end = self._buffer.find(self.END)
+        #     if end < 0:
+        #         return None
+        #
+        #     frame = self._buffer[:end]
+        #     self._buffer = self._buffer[(end + 1) :]
+        #     frame = self._unescape(frame)
+        #
+        #     if len(frame) < 4:
+        #         continue
+        #
+        #     checksum = frame[-2:]
+        #     frame = frame[:-2]
+        #     if self._checksum(frame) != checksum:
+        #         LOGGER.warning(
+        #             "Invalid checksum: 0x%s, data: 0x%s",
+        #             binascii.hexlify(checksum).decode(),
+        #             binascii.hexlify(frame).decode(),
+        #         )
+        #         continue
+        #
+        #     LOGGER.debug("Frame received: 0x%s", binascii.hexlify(frame).decode())
+        #     self._api.data_received(frame)
+
+
+class Parser:
+    buffer = bytearray()
+
+    def write(self, b):
+        self.buffer += bytes([b])
+        if SOF == self.buffer[0]:
+            if len(self.buffer) > MinMessageLength:
+                dataLength = self.buffer[PositionDataLength]
+
+                fcsPosition = DataStart + dataLength
+                frameLength = fcsPosition + 1
+
+                if len(self.buffer) >= frameLength:
+                    frameBuffer = self.buffer[0:frameLength]
+                    self.buffer = self.buffer[frameLength:]
+
+                    frame = UnpiFrame.from_buffer(dataLength, fcsPosition, frameBuffer)
+
+                    return frame
+        else:
+            self.buffer = bytearray()
+
+        return None
+
+
+
+class ZpiObject:
+    def __init__(self, type, subsystem, command, commandId, payload, parameters):
+        self.type = type
+        self.subsystem = subsystem
+        self.command = command
+        self.command_id = commandId
+        self.payload = payload
+        self.parameters = parameters
+
+    def to_unpi_frame(self):
+        data = bytearray()
+
+        for p in self.parameters:
+            # TODO
+            print(p)
+
+        return UnpiFrame(self.type, self.subsystem, self.command_id, data)
+
+    @classmethod
+    def from_unpi_frame(cls, frame):
+        cmd = next(c for c in Definition[frame.subsystem] if c["ID"] == frame.command_id)
+        parameters = cmd["response"] if frame.type == CommandType.SRSP else cmd["request"]
+        payload = cls.read_parameters(frame.data, parameters)
+
+        return cls(frame.type, frame.subsystem, cmd["name"], cmd["ID"], payload, parameters)
+
+    @classmethod
+    def read_parameters(cls, data: bytearray, parameters):
+        res = {}
+        # print(parameters)
+        start = 0
+        for p in parameters:
+            if p["parameterType"] == ParameterType.UINT8:
+                res[p["name"]] = int.from_bytes(data[start:start + 1], 'little')
+                start += 1
+            elif p["parameterType"] == ParameterType.UINT16:
+                res[p["name"]] = int.from_bytes(data[start:start + 2], 'little')
+                start += 2
+            elif p["parameterType"] == ParameterType.UINT32:
+                res[p["name"]] = int.from_bytes(data[start:start + 4], 'little')
+                start += 4
+            elif p["parameterType"] == ParameterType.IEEEADDR:
+                res[p["name"]] = '0x' + data[start:start + 8].hex()
+                start += 8
+            else:
+                res[p["name"]] = None
+
+        return res
+
+    def __str__(self) -> str:
+        return '{} - [{}]'.format(
+            self.command, self.payload
+        )
+
+class UnpiFrame:
+
+    def __init__(self, type, subsystem, command_id, data, length=None, fcs=None):
+        self.type = type
+        self.subsystem = subsystem
+        self.command_id = command_id
+        self.data = data
+        self.length = length
+        self.fcs = fcs
+
+    @classmethod
+    def from_buffer(cls, length, fcs_position, buffer):
+        subsystem = buffer[PositionCmd0] & 0x1F
+        type = (buffer[PositionCmd0] & 0xE0) >> 5
+        command_id = buffer[PositionCmd1]
+        data = buffer[DataStart:fcs_position]
+        fcs = buffer[fcs_position]
+
+        checksum = cls.calculate_checksum(buffer[1:fcs_position])
+
+        if checksum == fcs:
+            return cls(type, subsystem, command_id, data, length, fcs)
+        else:
+            raise Exception("Invalid checksum")
+
+    @staticmethod
+    def calculate_checksum(values):
+        checksum = 0
+
+        for value in values:
+            checksum ^= value
+
+        return checksum
+
+    def to_buffer(self):
+        length = len(self.data)
+        res = bytearray()
+
+        cmd0 = ((self.type << 5) & 0xE0) | (self.subsystem & 0x1F)
+
+        res.append(SOF)
+        res.append(length)
+        res.append(cmd0)
+        res.append(self.command_id)
+        res += self.data
+
+        checksum = self.calculate_checksum(res[1:])
+        res.append(checksum)
+
+        # print(res)
+
+        return res
+
+    def __str__(self) -> str:
+        return '{} - {} - {} - {} - [{}] - {}'.format(
+            self.length, self.type, self.subsystem, self.command_id, self.data, self.fcs
+        )
+
+
+async def connect(port, baudrate, api, loop=None):
+    if loop is None:
+        loop = asyncio.get_event_loop()
+
+    connected_future = asyncio.Future()
+    protocol = Gateway(api, connected_future)
+
+    _, protocol = await serial_asyncio.create_serial_connection(
+        loop,
+        lambda: protocol,
+        url=port,
+        baudrate=baudrate,
+        parity=serial.PARITY_NONE,
+        stopbits=serial.STOPBITS_ONE,
+        xonxoff=False,
+        rtscts=True,
+    )
+
+    await connected_future
+
+    protocol.write(b'\xef')
+    await asyncio.sleep(1)
+
+    return protocol

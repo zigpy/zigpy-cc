@@ -1,5 +1,11 @@
-from zigpy_cc.definition import Definition
-from zigpy_cc.types import CommandType, ParameterType
+import asyncio
+import logging
+
+from . import uart
+from .definition import Definition
+from .types import Subsystem
+
+LOGGER = logging.getLogger(__name__)
 
 DataStart = 4
 SOF = 0xFE
@@ -12,143 +18,82 @@ MinMessageLength = 5
 MaxDataSize = 250
 
 
-class Parser:
-    buffer = bytearray()
-
-    def write(self, b):
-        self.buffer += b
-        if SOF == self.buffer[0]:
-            if len(self.buffer) > MinMessageLength:
-                dataLength = self.buffer[PositionDataLength]
-
-                fcsPosition = DataStart + dataLength
-                frameLength = fcsPosition + 1
-
-                if len(self.buffer) >= frameLength:
-                    frameBuffer = self.buffer[0:frameLength]
-                    self.buffer = self.buffer[frameLength:]
-
-                    frame = UnpiFrame.from_buffer(dataLength, fcsPosition, frameBuffer)
-                    # print('--> parsed', frame)
-
-                    object = ZpiObject.from_unpi_frame(frame)
-
-                    return object
-        else:
-            self.buffer = bytearray()
-
-        return None
+COMMAND_TIMEOUT = 2
+CC_BAUDRATE = 115200
 
 
-class UnpiFrame:
+class API:
+    def __init__(self):
+        self._uart = None
+        self._seq = 1
+        self._awaiting = {}
+        self._app = None
+        self._proto_ver = None
 
-    def __init__(self, type, subsystem, command_id, data, length=None, fcs=None):
-        self.type = type
-        self.subsystem = subsystem
-        self.command_id = command_id
-        self.data = data
-        self.length = length
-        self.fcs = fcs
+    @property
+    def protocol_version(self):
+        """Protocol Version."""
+        return self._proto_ver
 
-    @classmethod
-    def from_buffer(cls, length, fcs_position, buffer):
-        subsystem = buffer[PositionCmd0] & 0x1F
-        type = (buffer[PositionCmd0] & 0xE0) >> 5
-        command_id = buffer[PositionCmd1]
-        data = buffer[DataStart:fcs_position]
-        fcs = buffer[fcs_position]
+    def set_application(self, app):
+        self._app = app
 
-        checksum = cls.calculate_checksum(buffer[1:fcs_position])
+    async def connect(self, device, baudrate=CC_BAUDRATE):
+        assert self._uart is None
+        self._uart = await uart.connect(device, baudrate, self)
 
-        if checksum == fcs:
-            return cls(type, subsystem, command_id, data, length, fcs)
-        else:
-            raise Exception("Invalid checksum")
+    def close(self):
+        return self._uart.close()
 
-    @staticmethod
-    def calculate_checksum(values):
-        checksum = 0
+    async def _command(self, subsystem, command, payload) -> uart.ZpiObject:
+        cmd = self.createRequest(subsystem, command, payload)
+        LOGGER.debug("Command %s", cmd)
 
-        for value in values:
-            checksum ^= value
+        frame = cmd.to_unpi_frame()
+        self._uart.send(frame)
+        fut = asyncio.Future()
+        seq = "{}_{}".format(subsystem, command)
 
-        return checksum
-
-    def to_buffer(self):
-        length = len(self.data)
-        res = bytearray()
-
-        cmd0 = ((self.type << 5) & 0xE0) | (self.subsystem & 0x1F)
-
-        res.append(SOF)
-        res.append(length)
-        res.append(cmd0)
-        res.append(self.command_id)
-        res += self.data
-
-        checksum = self.calculate_checksum(res[1:])
-        res.append(checksum)
-
-        # print(res)
-
-        return res
-
-    def __str__(self) -> str:
-        return '{} - {} - {} - {} - [{}] - {}'.format(
-            self.length, self.type, self.subsystem, self.command_id, self.data, self.fcs
-        )
+        self._awaiting[seq] = fut
+        try:
+            return await asyncio.wait_for(fut, timeout=COMMAND_TIMEOUT)
+        except asyncio.TimeoutError:
+            LOGGER.warning("No response to '%s' command", cmd)
+            self._awaiting.pop(seq)
+            raise
 
 
-class ZpiObject:
-    def __init__(self, type, subsystem, command, commandId, payload, parameters):
-        self.type = type
-        self.subsystem = subsystem
-        self.command = command
-        self.command_id = commandId
-        self.payload = payload
-        self.parameters = parameters
 
-    def to_unpi_frame(self):
-        data = bytearray()
+    def data_received(self, frame):
+        object = uart.ZpiObject.from_unpi_frame(frame)
+        # print('data_received', object)
 
-        for p in self.parameters:
-            # TODO
-            print(p)
+        # TODO ?
+        solicited = True
+        seq = "{}_{}".format(object.subsystem, object.command)
 
-        return UnpiFrame(self.type, self.subsystem, self.command_id, data)
+        if solicited and seq in self._awaiting:
+            fut = self._awaiting.pop(seq)
+            fut.set_result(object)
 
-    @classmethod
-    def from_unpi_frame(cls, frame):
-        cmd = next(c for c in Definition[frame.subsystem] if c["ID"] == frame.command_id)
-        parameters = cmd["response"] if frame.type == CommandType.SRSP else cmd["request"]
-        payload = cls.read_parameters(frame.data, parameters)
+    async def version(self):
+        version = await self._command(Subsystem.SYS, "version", {})
+        # if (
+        #     self.protocol_version >= MIN_PROTO_VERSION
+        #     and (version[0] & 0x0000FF00) == 0x00000500
+        # ):
+        #     self._aps_data_ind_flags = 0x04
+        return version.payload
 
-        return cls(frame.type, frame.subsystem, cmd["name"], cmd["ID"], payload, parameters)
+    def _handle_version(self, data):
+        LOGGER.debug("Version response: %x", data[0])
 
-    @classmethod
-    def read_parameters(cls, data: bytearray, parameters):
-        res = {}
-        # print(parameters)
-        start = 0
-        for p in parameters:
-            if p["parameterType"] == ParameterType.UINT8:
-                res[p["name"]] = int.from_bytes(data[start:start + 1], 'little')
-                start += 1
-            elif p["parameterType"] == ParameterType.UINT16:
-                res[p["name"]] = int.from_bytes(data[start:start + 2], 'little')
-                start += 2
-            elif p["parameterType"] == ParameterType.UINT32:
-                res[p["name"]] = int.from_bytes(data[start:start + 4], 'little')
-                start += 4
-            elif p["parameterType"] == ParameterType.IEEEADDR:
-                res[p["name"]] = '0x' + data[start:start + 8].hex()
-                start += 8
-            else:
-                res[p["name"]] = None
 
-        return res
 
-    def __str__(self) -> str:
-        return '{} - [{}]'.format(
-            self.command, self.payload
-        )
+
+
+    def createRequest(self, subsystem, command, payload):
+        cmd = next(c for c in Definition[subsystem] if c["name"] == command)
+
+        return uart.ZpiObject(cmd["type"], subsystem, command, cmd["ID"], payload, cmd["request"])
+

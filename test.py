@@ -1,9 +1,11 @@
-import time
-
-import serial
+import asyncio
+import logging
 
 from zigpy_cc import api
-from zigpy_cc.types import Subsystem
+from zigpy_cc.api import API
+from zigpy_cc.uart import Parser
+
+logging.basicConfig(level=logging.DEBUG)
 
 path = "/dev/ttyACM0"
 
@@ -77,49 +79,32 @@ response.append(b'\x00')
 response.append(b'\x00')
 response.append(b'\xda')
 
-def request(ser, subsystem, command, payload):
-    req = createRequest(subsystem, command, payload)
-    print("<--", req)
-
-    frame = req.to_unpi_frame()
-    ser.write(frame.to_buffer())
-    read_frame(ser)
-
-def read_frame(ser):
-    parser = api.Parser()
-    while True:
-        b = ser.read()
-        obj = parser.write(b)
-        if obj is not None:
-            print("-->", obj)
-            return
-
-
-def createRequest(subsystem, command, payload):
-    cmd = next(c for c in api.Definition[subsystem] if c["name"] == command)
-
-    return api.ZpiObject(cmd["type"], subsystem, command, cmd["ID"], payload, cmd["request"])
 
 
 
 def test():
-    parser = api.Parser()
-    for b in response:
+    parser = Parser()
+    for b in b'\xfe\x0ea\x02\x02\x00\x02\x06\x03\x90\x154\x01\x02\x00\x00\x00\x00\xda':
         obj = parser.write(b)
         if obj is not None:
             print('-->', obj)
 
     print()
     print()
-    req = createRequest(Subsystem.SYS, "version", {})
-    print("<--", req)
-    frame = req.to_unpi_frame()
-    print('frame', frame)
-    print('buffer', frame.to_buffer())
+    # req = createRequest(Subsystem.SYS, "version", {})
+    # print("<--", req)
+    # frame = req.to_unpi_frame()
+    # print('frame', frame)
+    # print('buffer', frame.to_buffer())
+
+async def main():
+    api = API()
+    await api.connect(path)
+    print("connected")
+    ver = await api.version()
+    print("ver", ver)
 
 # test()
-with serial.Serial(path, baudrate, rtscts=rtscts) as ser:
-    print("connected", ser.name)
-    ser.write(b'\xef')
-    time.sleep(1)
-    request(ser, Subsystem.SYS, "version", {})
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main())
+loop.close()
