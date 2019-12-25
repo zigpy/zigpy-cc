@@ -6,42 +6,41 @@ from zigpy_cc.types import Subsystem, CommandType, ParameterType
 Definition = {
     Subsystem.SYS: [
         {
-            "name": 'version',
+            "name": "version",
             "ID": 2,
             "type": CommandType.SREQ,
-            "request": [
-            ],
+            "request": [],
             "response": [
-                {"name": 'transportrev', "parameterType": ParameterType.UINT8},
-                {"name": 'product', "parameterType": ParameterType.UINT8},
-                {"name": 'majorrel', "parameterType": ParameterType.UINT8},
-                {"name": 'minorrel', "parameterType": ParameterType.UINT8},
-                {"name": 'maintrel', "parameterType": ParameterType.UINT8},
-                {"name": 'revision', "parameterType": ParameterType.UINT32},
+                {"name": "transportrev", "parameterType": ParameterType.UINT8},
+                {"name": "product", "parameterType": ParameterType.UINT8},
+                {"name": "majorrel", "parameterType": ParameterType.UINT8},
+                {"name": "minorrel", "parameterType": ParameterType.UINT8},
+                {"name": "maintrel", "parameterType": ParameterType.UINT8},
+                {"name": "revision", "parameterType": ParameterType.UINT32},
             ],
         }
     ],
     Subsystem.ZDO: [
         {
-            "name": 'endDeviceAnnceInd',
+            "name": "endDeviceAnnceInd",
             "ID": 193,
             "type": CommandType.AREQ,
             "request": [
-                {"name": 'srcaddr', "parameterType": ParameterType.UINT16},
-                {"name": 'nwkaddr', "parameterType": ParameterType.UINT16},
-                {"name": 'ieeeaddr', "parameterType": ParameterType.IEEEADDR},
-                {"name": 'capabilities', "parameterType": ParameterType.UINT8},
+                {"name": "srcaddr", "parameterType": ParameterType.UINT16},
+                {"name": "nwkaddr", "parameterType": ParameterType.UINT16},
+                {"name": "ieeeaddr", "parameterType": ParameterType.IEEEADDR},
+                {"name": "capabilities", "parameterType": ParameterType.UINT8},
             ],
         },
         {
-            "name": 'tcDeviceInd',
+            "name": "tcDeviceInd",
             "ID": 202,
             "type": CommandType.AREQ,
             "request": [
-                {"name": 'nwkaddr', "parameterType": ParameterType.UINT16},
-                {"name": 'extaddr', "parameterType": ParameterType.IEEEADDR},
-                {"name": 'parentaddr', "parameterType": ParameterType.UINT16},
+                {"name": "nwkaddr", "parameterType": ParameterType.UINT16},
+                {"name": "extaddr", "parameterType": ParameterType.IEEEADDR},
+                {"name": "parentaddr", "parameterType": ParameterType.UINT16},
             ],
-        }
-    ]
+        },
+    ],
 }

@@ -1,6 +1,7 @@
 import enum
 import zigpy.types
 
+
 def deserialize(data, schema):
     result = []
     for type_ in schema:
@@ -10,7 +11,7 @@ def deserialize(data, schema):
 
 
 def serialize(data, schema):
-    return b''.join(t(v).serialize() for t, v in zip(schema, data))
+    return b"".join(t(v).serialize() for t, v in zip(schema, data))
 
 
 class Bytes(bytes):
@@ -19,7 +20,7 @@ class Bytes(bytes):
 
     @classmethod
     def deserialize(cls, data):
-        return cls(data), b''
+        return cls(data), b""
 
 
 class LBytes(bytes):
@@ -27,25 +28,24 @@ class LBytes(bytes):
         return uint8_t(len(self)).serialize() + self
 
     @classmethod
-    def deserialize(cls, data, byteorder='big'):
+    def deserialize(cls, data, byteorder="big"):
         _bytes = int.from_bytes(data[:1], byteorder)
-        s = data[1:_bytes + 1]
-        return s, data[_bytes + 1:]
+        s = data[1 : _bytes + 1]
+        return s, data[_bytes + 1 :]
 
 
 class int_t(int):
     _signed = True
     _size = 0
 
-    def serialize(self, byteorder='big'):
+    def serialize(self, byteorder="big"):
         return self.to_bytes(self._size, byteorder, signed=self._signed)
 
     @classmethod
-    def deserialize(cls, data, byteorder='big'):
+    def deserialize(cls, data, byteorder="big"):
         # Work around https://bugs.python.org/issue23640
-        r = cls(int.from_bytes(data[:cls._size],
-                               byteorder, signed=cls._signed))
-        data = data[cls._size:]
+        r = cls(int.from_bytes(data[: cls._size], byteorder, signed=cls._signed))
+        data = data[cls._size :]
         return r, data
 
 
@@ -157,7 +157,7 @@ class Struct:
                 setattr(self, k, v)
 
     def serialize(self):
-        r = b''
+        r = b""
         for field in self._fields:
             if hasattr(self, field[0]):
                 r += getattr(self, field[0]).serialize()
@@ -172,18 +172,18 @@ class Struct:
         return r, data
 
     def __repr__(self):
-        r = '<%s ' % (self.__class__.__name__, )
-        r += ' '.join(
-            ['%s=%s' % (f[0], getattr(self, f[0], None)) for f in self._fields]
+        r = "<%s " % (self.__class__.__name__,)
+        r += " ".join(
+            ["%s=%s" % (f[0], getattr(self, f[0], None)) for f in self._fields]
         )
-        r += '>'
+        r += ">"
         return r
 
 
 class Address(Struct):
     _fields = [
-        ('address_mode', ADDRESS_MODE),
-        ('address', EUI64),
+        ("address_mode", ADDRESS_MODE),
+        ("address", EUI64),
     ]
 
     def __eq__(self, other):
@@ -218,12 +218,12 @@ class Subsystem(uint8_t, enum.Enum):
     NWK = 3
     AF = 4
     ZDO = 5
-    SAPI = 6,
-    UTIL = 7,
-    DEBUG = 8,
-    APP = 9,
-    APP_CNF = 15,
-    GREENPOWER = 21,
+    SAPI = (6,)
+    UTIL = (7,)
+    DEBUG = (8,)
+    APP = (9,)
+    APP_CNF = (15,)
+    GREENPOWER = (21,)
 
 
 class ParameterType(uint8_t, enum.Enum):
@@ -232,20 +232,20 @@ class ParameterType(uint8_t, enum.Enum):
     UINT32 = 2
     IEEEADDR = 3
 
-    BUFFER  = 4,
-    BUFFER8 = 5,
-    BUFFER16 = 6,
-    BUFFER18 = 7,
-    BUFFER32 = 8,
-    BUFFER42 = 9,
-    BUFFER100 = 10,
+    BUFFER = (4,)
+    BUFFER8 = (5,)
+    BUFFER16 = (6,)
+    BUFFER18 = (7,)
+    BUFFER32 = (8,)
+    BUFFER42 = (9,)
+    BUFFER100 = (10,)
 
-    LIST_UINT8 = 11,
-    LIST_UINT16 = 12,
-    LIST_ROUTING_TABLE = 13,
-    LIST_BIND_TABLE = 14,
-    LIST_NEIGHBOR_LQI = 15,
-    LIST_NETWORK = 16,
-    LIST_ASSOC_DEV = 17,
+    LIST_UINT8 = (11,)
+    LIST_UINT16 = (12,)
+    LIST_ROUTING_TABLE = (13,)
+    LIST_BIND_TABLE = (14,)
+    LIST_NEIGHBOR_LQI = (15,)
+    LIST_NETWORK = (16,)
+    LIST_ASSOC_DEV = (17,)
 
-    INT8 = 18,
+    INT8 = (18,)

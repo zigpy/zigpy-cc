@@ -22,14 +22,14 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         self._nwk = 0
         self._ieee = 0
-        self.version = ''
+        self.version = ""
 
     async def startup(self, auto_form=False):
         """Perform a complete application startup"""
         await self._api.set_raw_mode()
         version, lqi = await self._api.version()
-        version = '{:x}'.format(version[1])
-        version = '{}.{}'.format(version[0], version[1:])
+        version = "{:x}".format(version[1])
+        version = "{}.{}".format(version[0], version[1:])
         self.version = version
 
         if auto_form:
@@ -49,38 +49,38 @@ class ControllerApplication(zigpy.application.ControllerApplication):
     async def form_network(self, channel=15, pan_id=None, extended_pan_id=None):
         await self._api.set_channel(channel)
         if pan_id:
-            LOGGER.warning('Setting pan_id is not supported by ZiGate')
-#             self._api.set_panid(pan_id)
+            LOGGER.warning("Setting pan_id is not supported by ZiGate")
+        #             self._api.set_panid(pan_id)
         if extended_pan_id:
             await self._api.set_extended_panid(extended_pan_id)
 
         network_formed, lqi = await self._api.start_network()
         if network_formed[0] in (0, 1, 4):
-            LOGGER.info('Network started %s %s',
-                        network_formed[1],
-                        network_formed[2])
+            LOGGER.info("Network started %s %s", network_formed[1], network_formed[2])
             self._nwk = network_formed[1]
             self._ieee = network_formed[2]
         else:
-            LOGGER.warning('Starting network got status %s, wait...', network_formed[0])
+            LOGGER.warning("Starting network got status %s, wait...", network_formed[0])
             tries = 3
             while tries > 0:
                 await asyncio.sleep(1)
                 tries -= 1
                 network_state, lqi = await self._api.get_network_state()
-                if network_state and \
-                   network_state[3] != 0 and \
-                   network_state[0] != 'ffff':
+                if (
+                    network_state
+                    and network_state[3] != 0
+                    and network_state[0] != "ffff"
+                ):
                     break
             if tries <= 0:
-                LOGGER.error('Failed to start network error %s', network_formed[0])
+                LOGGER.error("Failed to start network error %s", network_formed[0])
                 await self._api.reset()
 
     async def force_remove(self, dev):
         await self._api.remove_device(self._ieee, dev.ieee)
 
     def zigate_callback_handler(self, msg, response, lqi):
-        LOGGER.debug('zigate_callback_handler {}'.format(response))
+        LOGGER.debug("zigate_callback_handler {}".format(response))
 
         if msg == 0x8048:  # leave
             nwk = 0
@@ -96,7 +96,9 @@ class ControllerApplication(zigpy.application.ControllerApplication):
                 if response[5].address_mode == t.ADDRESS_MODE.NWK:
                     device = self.get_device(nwk=response[5].address)
                 elif response[5].address_mode == t.ADDRESS_MODE.IEEE:
-                    device = self.get_device(ieee=zigpy.types.EUI64(response[5].address))
+                    device = self.get_device(
+                        ieee=zigpy.types.EUI64(response[5].address)
+                    )
                 else:
                     LOGGER.error("No such device %s", response[5].address)
                     return
@@ -105,9 +107,9 @@ class ControllerApplication(zigpy.application.ControllerApplication):
                 return
             rssi = 0
             device.radio_details(lqi, rssi)
-            self.handle_message(device, response[1],
-                                response[2],
-                                response[3], response[4], response[-1])
+            self.handle_message(
+                device, response[1], response[2], response[3], response[4], response[-1]
+            )
         elif msg == 0x8702:  # APS Data confirm Fail
             self._handle_frame_failure(response[4], response[0])
 
@@ -118,19 +120,45 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         except KeyError:
             LOGGER.warning("Unexpected message send failure")
         except asyncio.futures.InvalidStateError as exc:
-            LOGGER.debug("Invalid state on future - probably duplicate response: %s", exc)
+            LOGGER.debug(
+                "Invalid state on future - probably duplicate response: %s", exc
+            )
 
     @zigpy.util.retryable_request
-    async def request(self, device, profile, cluster, src_ep, dst_ep, sequence, data,
-                      expect_reply=True, use_ieee=False):
+    async def request(
+        self,
+        device,
+        profile,
+        cluster,
+        src_ep,
+        dst_ep,
+        sequence,
+        data,
+        expect_reply=True,
+        use_ieee=False,
+    ):
         src_ep = 1 if dst_ep else 0  # ZiGate only support endpoint 1
-        LOGGER.debug('request %s',
-                     (device.nwk, profile, cluster, src_ep, dst_ep, sequence, data, expect_reply, use_ieee))
+        LOGGER.debug(
+            "request %s",
+            (
+                device.nwk,
+                profile,
+                cluster,
+                src_ep,
+                dst_ep,
+                sequence,
+                data,
+                expect_reply,
+                use_ieee,
+            ),
+        )
         req_id = self.get_sequence()
         send_fut = asyncio.Future()
         self._pending[req_id] = send_fut
         try:
-            v, lqi = await self._api.raw_aps_data_request(device.nwk, src_ep, dst_ep, profile, cluster, data)
+            v, lqi = await self._api.raw_aps_data_request(
+                device.nwk, src_ep, dst_ep, profile, cluster, data
+            )
         except NoResponseError:
             return 1, "ZiGate doesn't answer to command"
 
@@ -141,13 +169,13 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         # Commented out for now
         # Currently (Firmware 3.1a) only send APS Data confirm in case of failure
         # https://github.com/fairecasoimeme/ZiGate/issues/239
-#         try:
-#             v = await asyncio.wait_for(send_fut, 120)
-#         except asyncio.TimeoutError:
-#             return 1, "timeout waiting for message %s send ACK" % (sequence, )
-#         finally:
-#             self._pending.pop(req_id)
-#         return v, "Message sent"
+        #         try:
+        #             v = await asyncio.wait_for(send_fut, 120)
+        #         except asyncio.TimeoutError:
+        #             return 1, "timeout waiting for message %s send ACK" % (sequence, )
+        #         finally:
+        #             self._pending.pop(req_id)
+        #         return v, "Message sent"
         return 0, "Message sent"
 
     async def permit_ncp(self, time_s=60):
@@ -156,8 +184,18 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         if status[0] != 0:
             await self._api.reset()
 
-    async def broadcast(self, profile, cluster, src_ep, dst_ep, grpid, radius,
-                        sequence, data, broadcast_address):
+    async def broadcast(
+        self,
+        profile,
+        cluster,
+        src_ep,
+        dst_ep,
+        grpid,
+        radius,
+        sequence,
+        data,
+        broadcast_address,
+    ):
         LOGGER.debug("Broadcast not implemented.")
 
 
@@ -168,4 +206,4 @@ class ZiGateDevice(zigpy.device.Device):
 
     @property
     def model(self):
-        return 'ZiGate'
+        return "ZiGate"

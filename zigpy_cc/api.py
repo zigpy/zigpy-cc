@@ -46,7 +46,10 @@ class API:
         return self._uart.close()
 
     async def _command(self, subsystem, command, payload) -> uart.ZpiObject:
-        cmd = self.createRequest(subsystem, command, payload)
+        cmd = next(c for c in Definition[subsystem] if c["name"] == command)
+        cmd = uart.ZpiObject(
+            cmd["type"], subsystem, command, cmd["ID"], payload, cmd["request"]
+        )
         LOGGER.debug("Command %s", cmd)
 
         frame = cmd.to_unpi_frame()
@@ -62,8 +65,6 @@ class API:
             self._awaiting.pop(seq)
             raise
 
-
-
     def data_received(self, frame):
         object = uart.ZpiObject.from_unpi_frame(frame)
         # print('data_received', object)
@@ -75,25 +76,19 @@ class API:
         if solicited and seq in self._awaiting:
             fut = self._awaiting.pop(seq)
             fut.set_result(object)
+        getattr(self, "_handle_%s" % (object.command,))(object)
 
     async def version(self):
         version = await self._command(Subsystem.SYS, "version", {})
-        # if (
-        #     self.protocol_version >= MIN_PROTO_VERSION
-        #     and (version[0] & 0x0000FF00) == 0x00000500
-        # ):
-        #     self._aps_data_ind_flags = 0x04
+        # todo check version
         return version.payload
 
     def _handle_version(self, data):
-        LOGGER.debug("Version response: %x", data[0])
-
-
-
-
+        LOGGER.debug("Version response: %s", data.payload)
 
     def createRequest(self, subsystem, command, payload):
         cmd = next(c for c in Definition[subsystem] if c["name"] == command)
 
-        return uart.ZpiObject(cmd["type"], subsystem, command, cmd["ID"], payload, cmd["request"])
-
+        return uart.ZpiObject(
+            cmd["type"], subsystem, command, cmd["ID"], payload, cmd["request"]
+        )
