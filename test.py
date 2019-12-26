@@ -6,7 +6,7 @@ from zigpy_cc.zigbee import application
 
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
-# logging.getLogger('zigpy_cc.api').setLevel(logging.INFO)
+logging.getLogger('zigpy_cc.api').setLevel(logging.INFO)
 
 path = "/dev/ttyACM0"
 

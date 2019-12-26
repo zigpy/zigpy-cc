@@ -10,7 +10,7 @@ class Items:
             "id": NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK1 if version == ZnpVersion.zStack12 else NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK3,
             "len": 0x01,
             "initlen": 0x01,
-            "initvalue": b'0x00',
+            "initvalue": b'\x00',
         }
 
     @staticmethod
@@ -19,7 +19,7 @@ class Items:
             "id": NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK1 if version == ZnpVersion.zStack12 else NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK3,
             "offset": 0x00,
             "len": 0x01,
-            "value": b'0x55',
+            "value": b'\x55',
         }
 
     @staticmethod

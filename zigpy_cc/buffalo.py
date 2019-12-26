@@ -16,6 +16,27 @@ class Buffalo:
     def __len__(self) -> int:
         return len(self.buffer)
 
+    def write_parameter(self, type, value, options):
+        if type == ParameterType.UINT8:
+            self.write(value)
+        elif type == ParameterType.UINT16:
+            self.write(value, 2)
+        elif type == ParameterType.UINT32:
+            self.write(value, 4)
+        elif type == ParameterType.IEEEADDR:
+            self.write(int(value[10:], 16), 4)
+            self.write(int(value[2:10], 16), 4)
+        elif type == ParameterType.BUFFER:
+            self.buffer += value
+        elif type == ParameterType.LIST_UINT16:
+            for v in value:
+                self.write(v, 2)
+        else:
+            raise Exception('write not implemented', ParameterType(type))
+
+    def write(self, value, length=1):
+        self.buffer += value.to_bytes(length, "little")
+
     def read_parameter(self, type, options):
         if type == ParameterType.UINT8:
             res = self.read_int()
@@ -28,6 +49,10 @@ class Buffalo:
         elif type == ParameterType.BUFFER:
             length = options.length
             res = self.read(length)
+        elif type == ParameterType.LIST_UINT8:
+            res = []
+            for i in range(0, options.length):
+                res.append(self.read_int())
         elif type == ParameterType.LIST_UINT16:
             res = []
             for i in range(0, options.length):

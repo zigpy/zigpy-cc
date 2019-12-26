@@ -22,7 +22,16 @@ class DeviceLogicalType:
 class ZDO:
     deviceLogicalType = DeviceLogicalType
 
+class networkLatencyReq:
+    NO_LATENCY_REQS = 0
+    FAST_BEACONS = 1
+    SLOW_BEACONS = 2
+
+class AF:
+    networkLatencyReq = networkLatencyReq
+
 
 class Constants:
+    AF = AF
     SYS = System
     ZDO = ZDO

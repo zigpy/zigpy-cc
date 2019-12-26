@@ -12,20 +12,37 @@ COMMAND_TIMEOUT = 3
 CC_BAUDRATE = 115200
 
 
+class Matcher:
+    def __init__(self, type, subsystem, command, payload):
+        self.type = type
+        self.subsystem = subsystem
+        self.command = command
+        self.payload = payload
+
+
 class Waiter:
-    def __init__(self, seq, future, timeout):
-        self.seq = seq
-        self.future = future
+    def __init__(self, type: int, subsystem: int, command: str, payload, timeout: int):
+        self.matcher = Matcher(type, subsystem, command, payload)
+        self.future = asyncio.Future()
         self.timeout = timeout
 
     async def wait(self):
         return await asyncio.wait_for(self.future, self.timeout / 1000)
 
+    def match(self, obj: ZpiObject):
+        matcher = self.matcher
+        if matcher.type != obj.type or matcher.subsystem != obj.subsystem or matcher.command != obj.command:
+            return False
+
+        # TODO check payload
+
+        return True
+
 class API:
     def __init__(self):
         self._uart = None
         self._seq = 1
-        self._awaiting = {}
+        self._waiters = []
         self._app = None
         self._proto_ver = None
 
@@ -92,23 +109,21 @@ class API:
         #     raise
 
     def wait_for(self, type, subsystem, command, payload = {}, timeout = Timeouts.default):
-        fut = asyncio.Future()
-        seq = "{}_{}_{}".format(type, subsystem, command)
-        self._awaiting[seq] = fut
+        waiter = Waiter(type, subsystem, command, payload, timeout)
+        self._waiters.append(waiter)
 
-        return Waiter(seq, fut, timeout)
+        return waiter
 
     def data_received(self, frame):
         obj = ZpiObject.from_unpi_frame(frame)
         LOGGER.debug('--> %s', obj)
 
-        seq = "{}_{}_{}".format(obj.type, obj.subsystem, obj.command)
-
-        if seq in self._awaiting:
-            fut = self._awaiting.pop(seq)
-            fut.set_result(obj)
-        else:
-            LOGGER.debug('NOT A RESPONSE %s', obj)
+        for waiter in self._waiters:
+            if waiter.match(obj):
+                self._waiters.remove(waiter)
+                waiter.future.set_result(obj)
+        # else:
+        #     LOGGER.debug('NOT A RESPONSE %s', obj)
 
         try:
             getattr(self, "_handle_%s" % (obj.command,))(obj)

@@ -26,24 +26,13 @@ class ZpiObject:
                (self.command == "systemReset" and self.subsystem == Subsystem.SAPI)
 
     def to_unpi_frame(self):
-        data = b''
+        data = Buffalo(b'')
 
         for p in self.parameters:
             value = self.payload[p['name']]
-            if p["parameterType"] == ParameterType.UINT8:
-                data += value.to_bytes(1, "little")
-            elif p["parameterType"] == ParameterType.UINT16:
-                data += value.to_bytes(2, "little")
-            elif p["parameterType"] == ParameterType.UINT32:
-                data += value.to_bytes(4, "little")
-            elif p["parameterType"] == ParameterType.IEEEADDR:
-                data += value.to_bytes(8, "little")
-            elif p["parameterType"] == ParameterType.BUFFER:
-                data += value
-            else:
-                raise Exception('write not implemented', p)
+            data.write_parameter(p['parameterType'], value, {})
 
-        return uart.UnpiFrame(self.type, self.subsystem, self.command_id, data)
+        return uart.UnpiFrame(self.type, self.subsystem, self.command_id, data.buffer)
 
     @classmethod
     def from_unpi_frame(cls, frame):

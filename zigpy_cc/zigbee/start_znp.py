@@ -11,7 +11,41 @@ from .nv_items import Items
 
 LOGGER = logging.getLogger(__name__)
 
-Endpoints = []
+
+class Endpoint:
+    def __init__(self, **kwargs) -> None:
+        self.endpoint = None
+        self.appdeviceid = 0x0005
+        self.appdevver = 0
+        self.appnuminclusters = 0
+        self.appinclusterlist = []
+        self.appnumoutclusters = 0
+        self.appoutclusterlist = []
+        self.latencyreq = Constants.AF.networkLatencyReq.NO_LATENCY_REQS
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+Endpoints = [
+    Endpoint(endpoint=1, appprofid=0x0104),
+    Endpoint(endpoint=2, appprofid=0x0101),
+    Endpoint(endpoint=3, appprofid=0x0106),
+    Endpoint(endpoint=4, appprofid=0x0107),
+    Endpoint(endpoint=5, appprofid=0x0108),
+    Endpoint(endpoint=6, appprofid=0x0109),
+    Endpoint(endpoint=8, appprofid=0x0104),
+    Endpoint(
+        endpoint=11,
+        appprofid=0x0104,
+        appdeviceid=0x0400,
+        appnumoutclusters=1,
+        # appoutclusterlist = [getCluster('ssIasZone').ID]
+        appoutclusterlist=[1280]
+    ),
+    # TERNCY: https://github.com/Koenkk/zigbee-herdsman/issues/82
+    Endpoint(endpoint=0x6E, appprofid=0x0104),
+    Endpoint(endpoint=12, appprofid=0xc05e),
+]
 
 
 async def validate_item(znp: API, item, message, subsystem=Subsystem.SYS, command='osalNvRead'):
@@ -82,16 +116,21 @@ async def boot(znp: API):
 
 
 async def registerEndpoints(znp: API):
+    LOGGER.debug('Register endpoints...')
+
     activeEpResponse = znp.wait_for(CommandType.AREQ, Subsystem.ZDO, 'activeEpRsp')
-    await znp.request(Subsystem.ZDO, 'activeEpReq', {"dstaddr": 0, "nwkaddrofinterest": 0})
+    try:
+        await znp.request(Subsystem.ZDO, 'activeEpReq', {"dstaddr": 0, "nwkaddrofinterest": 0})
+    except Exception as e:
+        LOGGER.debug(e)
     activeEp = await activeEpResponse.wait()
 
     for endpoint in Endpoints:
-        if endpoint.endpoint in activeEp.payload.activeeplist:
-            LOGGER.debug("Endpoint '${endpoint.endpoint}' already registered")
+        if endpoint.endpoint in activeEp.payload["activeeplist"]:
+            LOGGER.debug("Endpoint '%s' already registered", endpoint.endpoint)
         else:
-            LOGGER.debug("Registering endpoint '${endpoint.endpoint}'")
-            await znp.request(Subsystem.AF, 'register', endpoint)
+            LOGGER.debug("Registering endpoint '%s'", endpoint.endpoint)
+            await znp.request(Subsystem.AF, 'register', vars(endpoint))
 
 
 async def initialise(znp: API, version, options: NetworkOptions):
@@ -116,7 +155,7 @@ async def initialise(znp: API, version, options: NetworkOptions):
         started = znp.wait_for(CommandType.AREQ, Subsystem.ZDO, 'stateChangeInd', {"state": 9}, 60000)
         await znp.request(Subsystem.APP_CNF, 'bdbStartCommissioning', {"mode": 0x04})
         try:
-            await started.future
+            await started.wait()
         except:
             raise Exception(
                 'Coordinator failed to start, probably the panID is already in use, try a different panID or channel')
