@@ -4,8 +4,7 @@ import logging
 import serial
 import serial_asyncio
 
-from zigpy_cc.definition import Definition
-from zigpy_cc.types import CommandType, ParameterType
+from zigpy_cc.buffalo import Buffalo
 
 LOGGER = logging.getLogger(__name__)
 
@@ -46,63 +45,6 @@ class Parser:
         return None
 
 
-class ZpiObject:
-    def __init__(self, type, subsystem, command, commandId, payload, parameters):
-        self.type = type
-        self.subsystem = subsystem
-        self.command = command
-        self.command_id = commandId
-        self.payload = payload
-        self.parameters = parameters
-
-    def to_unpi_frame(self):
-        data = bytearray()
-
-        for p in self.parameters:
-            # TODO
-            print(p)
-
-        return UnpiFrame(self.type, self.subsystem, self.command_id, data)
-
-    @classmethod
-    def from_unpi_frame(cls, frame):
-        cmd = next(
-            c for c in Definition[frame.subsystem] if c["ID"] == frame.command_id
-        )
-        parameters = (
-            cmd["response"] if frame.type == CommandType.SRSP else cmd["request"]
-        )
-        payload = cls.read_parameters(frame.data, parameters)
-
-        return cls(
-            frame.type, frame.subsystem, cmd["name"], cmd["ID"], payload, parameters
-        )
-
-    @classmethod
-    def read_parameters(cls, data: bytearray, parameters):
-        res = {}
-        # print(parameters)
-        start = 0
-        for p in parameters:
-            if p["parameterType"] == ParameterType.UINT8:
-                res[p["name"]] = int.from_bytes(data[start : start + 1], "little")
-                start += 1
-            elif p["parameterType"] == ParameterType.UINT16:
-                res[p["name"]] = int.from_bytes(data[start : start + 2], "little")
-                start += 2
-            elif p["parameterType"] == ParameterType.UINT32:
-                res[p["name"]] = int.from_bytes(data[start : start + 4], "little")
-                start += 4
-            elif p["parameterType"] == ParameterType.IEEEADDR:
-                res[p["name"]] = "0x" + data[start : start + 8].hex()
-                start += 8
-            else:
-                res[p["name"]] = None
-
-        return res
-
-    def __str__(self) -> str:
-        return "{} - [{}]".format(self.command, self.payload)
 
 
 class UnpiFrame:
@@ -157,7 +99,7 @@ class UnpiFrame:
 
     def __str__(self) -> str:
         return "{} - {} - {} - {} - [{}] - {}".format(
-            self.length, self.type, self.subsystem, self.command_id, self.data, self.fcs
+            self.subsystem, self.command_id, self.type, self.length, self.data, self.fcs
         )
 
 
@@ -198,12 +140,17 @@ class Gateway(asyncio.Protocol):
 
     def data_received(self, data):
         """Callback when there is data received from the uart"""
-        print("received", data)
+
+        found = False
         for b in data:
             frame = self._parser.write(b)
             if frame is not None:
+                found = True
                 LOGGER.debug("Frame received: %s", frame)
                 self._api.data_received(frame)
+
+        if not found:
+            LOGGER.info("Bytes received: %s", data)
 
         # self._buffer += data
         # while self._buffer:

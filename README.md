@@ -7,7 +7,8 @@
 
 The goal of this project to add native support for the CC25xx based ZigBee modules in Home Assistant via [Zigpy](https://github.com/zigpy/).
 
-This library is a port of [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman).
+This library is a port of [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman/tree/v0.12.24) (v0.12.24).
+
 
 # Releases via PyPI
 Tagged versions are also released via PyPI

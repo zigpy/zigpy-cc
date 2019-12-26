@@ -1,5 +1,4 @@
 import enum
-import zigpy.types
 
 
 def deserialize(data, schema):
@@ -23,29 +22,28 @@ class Bytes(bytes):
         return cls(data), b""
 
 
-class LBytes(bytes):
+class LVBytes(bytes):
     def serialize(self):
-        return uint8_t(len(self)).serialize() + self
+        return uint16_t(len(self)).serialize() + self
 
     @classmethod
-    def deserialize(cls, data, byteorder="big"):
-        _bytes = int.from_bytes(data[:1], byteorder)
-        s = data[1 : _bytes + 1]
-        return s, data[_bytes + 1 :]
+    def deserialize(cls, data, byteorder="little"):
+        length, data = uint16_t.deserialize(data)
+        return cls(data[:length]), data[length:]
 
 
 class int_t(int):
     _signed = True
     _size = 0
 
-    def serialize(self, byteorder="big"):
+    def serialize(self, byteorder="little"):
         return self.to_bytes(self._size, byteorder, signed=self._signed)
 
     @classmethod
-    def deserialize(cls, data, byteorder="big"):
+    def deserialize(cls, data, byteorder="little"):
         # Work around https://bugs.python.org/issue23640
         r = cls(int.from_bytes(data[: cls._size], byteorder, signed=cls._signed))
-        data = data[cls._size :]
+        data = data[cls._size:]
         return r, data
 
 
@@ -117,27 +115,13 @@ class uint64_t(uint_t):
     _size = 8
 
 
-class EUI64(zigpy.types.EUI64):
-    @classmethod
-    def deserialize(cls, data):
-        r, data = super().deserialize(data)
-        return cls(r[::-1]), data
-
-    def serialize(self):
-        assert self._length == len(self)
-        return super().serialize()[::-1]
-
-
-class NWK(zigpy.types.HexRepr, uint16_t):
-    pass
-
-
 class ADDRESS_MODE(uint8_t, enum.Enum):
-    # Address modes used in zigate protocol
+    # Address modes used in deconz protocol
 
     GROUP = 0x01
     NWK = 0x02
     IEEE = 0x03
+    NWK_AND_IEEE = 0x04
 
 
 class Struct:
@@ -149,12 +133,6 @@ class Struct:
             for field in self._fields:
                 if hasattr(args[0], field[0]):
                     setattr(self, field[0], getattr(args[0], field[0]))
-        elif len(args) == len(self._fields):
-            for arg, field in zip(args, self._fields):
-                setattr(self, field[0], field[1](arg))
-        elif kwargs:
-            for k, v in kwargs.items():
-                setattr(self, k, v)
 
     def serialize(self):
         r = b""
@@ -180,28 +158,20 @@ class Struct:
         return r
 
 
-class Address(Struct):
-    _fields = [
-        ("address_mode", ADDRESS_MODE),
-        ("address", EUI64),
-    ]
+class Address:
+    pass
 
-    def __eq__(self, other):
-        return other.address_mode == self.address_mode and other.address == self.address
 
-    @classmethod
-    def deserialize(cls, data):
-        r = cls()
-        field_name, field_type = cls._fields[0]
-        mode, data = field_type.deserialize(data)
-        setattr(r, field_name, mode)
-        v = None
-        if mode in [ADDRESS_MODE.GROUP, ADDRESS_MODE.NWK]:
-            v, data = NWK.deserialize(data)
-        elif mode == ADDRESS_MODE.IEEE:
-            v, data = EUI64.deserialize(data)
-        setattr(r, cls._fields[1][0], v)
-        return r, data
+class Timeouts:
+    SREQ = 6000
+    reset = 30000
+    default = 10000
+
+
+class ZnpVersion(uint8_t, enum.Enum):
+    zStack12 = 0
+    zStack3x0 = 1
+    zStack30x = 2
 
 
 class CommandType(uint8_t, enum.Enum):
@@ -218,12 +188,12 @@ class Subsystem(uint8_t, enum.Enum):
     NWK = 3
     AF = 4
     ZDO = 5
-    SAPI = (6,)
-    UTIL = (7,)
-    DEBUG = (8,)
-    APP = (9,)
-    APP_CNF = (15,)
-    GREENPOWER = (21,)
+    SAPI = 6
+    UTIL = 7
+    DEBUG = 8
+    APP = 9
+    APP_CNF = 15
+    GREENPOWER = 21
 
 
 class ParameterType(uint8_t, enum.Enum):
@@ -232,20 +202,29 @@ class ParameterType(uint8_t, enum.Enum):
     UINT32 = 2
     IEEEADDR = 3
 
-    BUFFER = (4,)
-    BUFFER8 = (5,)
-    BUFFER16 = (6,)
-    BUFFER18 = (7,)
-    BUFFER32 = (8,)
-    BUFFER42 = (9,)
-    BUFFER100 = (10,)
+    BUFFER = 4
+    BUFFER8 = 5
+    BUFFER16 = 6
+    BUFFER18 = 7
+    BUFFER32 = 8
+    BUFFER42 = 9
+    BUFFER100 = 10
 
-    LIST_UINT8 = (11,)
-    LIST_UINT16 = (12,)
-    LIST_ROUTING_TABLE = (13,)
-    LIST_BIND_TABLE = (14,)
-    LIST_NEIGHBOR_LQI = (15,)
-    LIST_NETWORK = (16,)
-    LIST_ASSOC_DEV = (17,)
+    LIST_UINT8 = 11
+    LIST_UINT16 = 12
+    LIST_ROUTING_TABLE = 13
+    LIST_BIND_TABLE = 14
+    LIST_NEIGHBOR_LQI = 15
+    LIST_NETWORK = 16
+    LIST_ASSOC_DEV = 17
 
-    INT8 = (18,)
+    INT8 = 18
+
+
+class NetworkOptions:
+    def __init__(self) -> None:
+        self.networkKeyDistribute = False
+        self.networkKey = [1, 3, 5, 7, 9, 11, 13, 15, 0, 2, 4, 6, 8, 10, 12, 13]
+        self.panID = 0x1a62
+        self.extendedPanID = [0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD]
+        self.channelList = [11]

@@ -1,209 +1,316 @@
 import asyncio
+import binascii
 import logging
+import os
 
 import zigpy.application
 import zigpy.device
+import zigpy.endpoint
+import zigpy.exceptions
 import zigpy.types
 import zigpy.util
-from zigpy_zigate import types as t
-from zigpy_zigate.api import NoResponseError
+import zigpy_cc.exception
+from zigpy_cc import types as t
+# from zigpy_cc.api import NetworkParameter, NetworkState, Status
+from zigpy_cc.api import API
+from zigpy_cc.const import Constants
+from zigpy_cc.zigbee.nv_items import Items
+from zigpy_cc.types import Subsystem, NetworkOptions, ZnpVersion
+from zigpy_cc.zigbee.start_znp import initialise, start_znp
 
 LOGGER = logging.getLogger(__name__)
 
+CHANGE_NETWORK_WAIT = 1
+SEND_CONFIRM_TIMEOUT = 60
+PROTO_VER_WATCHDOG = 0x0108
+
 
 class ControllerApplication(zigpy.application.ControllerApplication):
-    def __init__(self, api, database_file=None):
+    def __init__(self, api: API, database_file=None):
         super().__init__(database_file=database_file)
         self._api = api
-        self._api.add_callback(self.zigate_callback_handler)
         api.set_application(self)
 
-        self._pending = {}
+        self._pending = zigpy.util.Requests()
 
         self._nwk = 0
-        self._ieee = 0
-        self.version = ""
+        self.discovering = False
+        self.version = 0
 
-    async def startup(self, auto_form=False):
-        """Perform a complete application startup"""
-        await self._api.set_raw_mode()
-        version, lqi = await self._api.version()
-        version = "{:x}".format(version[1])
-        version = "{}.{}".format(version[0], version[1:])
-        self.version = version
-
-        if auto_form:
-            await self.form_network()
-
-        network_state, lqi = await self._api.get_network_state()
-        self._nwk = network_state[0]
-        self._ieee = zigpy.types.EUI64(network_state[1])
-
-        dev = ZiGateDevice(self, self._ieee, self._nwk)
-        self.devices[dev.ieee] = dev
+    async def _reset_watchdog(self):
+        while True:
+            await self._api.write_parameter(NetworkParameter.watchdog_ttl, 3600)
+            await asyncio.sleep(1200)
 
     async def shutdown(self):
         """Shutdown application."""
         self._api.close()
 
-    async def form_network(self, channel=15, pan_id=None, extended_pan_id=None):
-        await self._api.set_channel(channel)
-        if pan_id:
-            LOGGER.warning("Setting pan_id is not supported by ZiGate")
-        #             self._api.set_panid(pan_id)
-        if extended_pan_id:
-            await self._api.set_extended_panid(extended_pan_id)
-
-        network_formed, lqi = await self._api.start_network()
-        if network_formed[0] in (0, 1, 4):
-            LOGGER.info("Network started %s %s", network_formed[1], network_formed[2])
-            self._nwk = network_formed[1]
-            self._ieee = network_formed[2]
-        else:
-            LOGGER.warning("Starting network got status %s, wait...", network_formed[0])
-            tries = 3
-            while tries > 0:
-                await asyncio.sleep(1)
-                tries -= 1
-                network_state, lqi = await self._api.get_network_state()
-                if (
-                    network_state
-                    and network_state[3] != 0
-                    and network_state[0] != "ffff"
-                ):
-                    break
-            if tries <= 0:
-                LOGGER.error("Failed to start network error %s", network_formed[0])
-                await self._api.reset()
+    async def startup(self, auto_form=False):
+        """Perform a complete application startup"""
+        self.version = await self._api.version()
+        ver = ZnpVersion(self.version['product']).name
+        LOGGER.debug("Detected znp version '%s' (%s)", ver, self.version)
+        options = NetworkOptions()
+        backupPath = ""
+        await start_znp(self._api, self.version['product'], options, backupPath)
 
     async def force_remove(self, dev):
-        await self._api.remove_device(self._ieee, dev.ieee)
+        """Forcibly remove device from NCP."""
+        pass
 
-    def zigate_callback_handler(self, msg, response, lqi):
-        LOGGER.debug("zigate_callback_handler {}".format(response))
+    async def form_network(self, channel=15, pan_id=None, extended_pan_id=None):
+        LOGGER.info("Forming network")
+        if self._api.network_state == NetworkState.CONNECTED.value:
+            return
 
-        if msg == 0x8048:  # leave
-            nwk = 0
-            ieee = zigpy.types.EUI64(response[0])
-            self.handle_leave(nwk, ieee)
-        elif msg == 0x004D:  # join
-            nwk = response[0]
-            ieee = zigpy.types.EUI64(response[1])
-            parent_nwk = 0
-            self.handle_join(nwk, ieee, parent_nwk)
-        elif msg == 0x8002:
-            try:
-                if response[5].address_mode == t.ADDRESS_MODE.NWK:
-                    device = self.get_device(nwk=response[5].address)
-                elif response[5].address_mode == t.ADDRESS_MODE.IEEE:
-                    device = self.get_device(
-                        ieee=zigpy.types.EUI64(response[5].address)
-                    )
-                else:
-                    LOGGER.error("No such device %s", response[5].address)
-                    return
-            except KeyError:
-                LOGGER.debug("No such device %s", response[5].address)
+        await self._api.change_network_state(NetworkState.CONNECTED.value)
+        for _ in range(10):
+            await self._api.device_state()
+            if self._api.network_state == NetworkState.CONNECTED.value:
                 return
-            rssi = 0
-            device.radio_details(lqi, rssi)
-            self.handle_message(
-                device, response[1], response[2], response[3], response[4], response[-1]
-            )
-        elif msg == 0x8702:  # APS Data confirm Fail
-            self._handle_frame_failure(response[4], response[0])
+            await asyncio.sleep(CHANGE_NETWORK_WAIT)
+        raise Exception("Could not form network.")
 
-    def _handle_frame_failure(self, message_tag, status):
+    async def mrequest(
+            self,
+            group_id,
+            profile,
+            cluster,
+            src_ep,
+            sequence,
+            data,
+            *,
+            hops=0,
+            non_member_radius=3
+    ):
+        """Submit and send data out as a multicast transmission.
+
+        :param group_id: destination multicast address
+        :param profile: Zigbee Profile ID to use for outgoing message
+        :param cluster: cluster id where the message is being sent
+        :param src_ep: source endpoint id
+        :param sequence: transaction sequence number of the message
+        :param data: Zigbee message payload
+        :param hops: the message will be delivered to all nodes within this number of
+                     hops of the sender. A value of zero is converted to MAX_HOPS
+        :param non_member_radius: the number of hops that the message will be forwarded
+                                  by devices that are not members of the group. A value
+                                  of 7 or greater is treated as infinite
+        :returns: return a tuple of a status and an error_message. Original requestor
+                  has more context to provide a more meaningful error message
+        """
+        req_id = self.get_sequence()
+        LOGGER.debug(
+            "Sending Zigbee multicast with tsn %s under %s request id, data: %s",
+            sequence,
+            req_id,
+            binascii.hexlify(data),
+        )
+        dst_addr_ep = t.DeconzAddressEndpoint()
+        dst_addr_ep.address_mode = t.ADDRESS_MODE.GROUP
+        dst_addr_ep.address = group_id
+
+        with self._pending.new(req_id) as req:
+            try:
+                await self._api.aps_data_request(
+                    req_id, dst_addr_ep, profile, cluster, min(1, src_ep), data
+                )
+            except zigpy_cc.exception.CommandError as ex:
+                return ex.status, "Couldn't enqueue send data request: {}".format(ex)
+
+            r = await asyncio.wait_for(req.result, SEND_CONFIRM_TIMEOUT)
+            if r:
+                LOGGER.warning("Error while sending %s req id frame: 0x%02x", req_id, r)
+                return r, "message send failure"
+
+        return Status.SUCCESS, "message send success"
+
+    @zigpy.util.retryable_request
+    async def request(
+            self,
+            device,
+            profile,
+            cluster,
+            src_ep,
+            dst_ep,
+            sequence,
+            data,
+            expect_reply=True,
+            use_ieee=False,
+    ):
+        req_id = self.get_sequence()
+        LOGGER.debug(
+            "Sending Zigbee request with tsn %s under %s request id, data: %s",
+            sequence,
+            req_id,
+            binascii.hexlify(data),
+        )
+        dst_addr_ep = t.DeconzAddressEndpoint()
+        dst_addr_ep.endpoint = t.uint8_t(dst_ep)
+        if use_ieee:
+            dst_addr_ep.address_mode = t.uint8_t(t.ADDRESS_MODE.IEEE)
+            dst_addr_ep.address = device.ieee
+        else:
+            dst_addr_ep.address_mode = t.uint8_t(t.ADDRESS_MODE.NWK)
+            dst_addr_ep.address = device.nwk
+
+        with self._pending.new(req_id) as req:
+            try:
+                await self._api.aps_data_request(
+                    req_id, dst_addr_ep, profile, cluster, min(1, src_ep), data
+                )
+            except zigpy_cc.exception.CommandError as ex:
+                return ex.status, "Couldn't enqueue send data request: {}".format(ex)
+
+            r = await asyncio.wait_for(req.result, SEND_CONFIRM_TIMEOUT)
+
+            if r:
+                LOGGER.warning("Error while sending %s req id frame: 0x%02x", req_id, r)
+                return r, "message send failure"
+
+            return r, "message send success"
+
+    async def broadcast(
+            self,
+            profile,
+            cluster,
+            src_ep,
+            dst_ep,
+            grpid,
+            radius,
+            sequence,
+            data,
+            broadcast_address=zigpy.types.BroadcastAddress.RX_ON_WHEN_IDLE,
+    ):
+        req_id = self.get_sequence()
+        LOGGER.debug(
+            "Sending Zigbee broadcast with tsn %s under %s request id, data: %s",
+            sequence,
+            req_id,
+            binascii.hexlify(data),
+        )
+        dst_addr_ep = t.DeconzAddressEndpoint()
+        dst_addr_ep.address_mode = t.uint8_t(t.ADDRESS_MODE.GROUP.value)
+        dst_addr_ep.address = t.uint16_t(broadcast_address)
+
+        with self._pending.new(req_id) as req:
+            try:
+                await self._api.aps_data_request(
+                    req_id, dst_addr_ep, profile, cluster, min(1, src_ep), data
+                )
+            except zigpy_cc.exception.CommandError as ex:
+                return (
+                    ex.status,
+                    "Couldn't enqueue send data request for broadcast: {}".format(ex),
+                )
+
+            r = await asyncio.wait_for(req.result, SEND_CONFIRM_TIMEOUT)
+
+            if r:
+                LOGGER.warning(
+                    "Error while sending %s req id broadcast: 0x%02x", req_id, r
+                )
+                return r, "broadcast send failure"
+            return r, "broadcast send success"
+
+    async def permit_ncp(self, time_s=60):
+        assert 0 <= time_s <= 254
+        await self._api.write_parameter(NetworkParameter.permit_join, time_s)
+
+    def handle_rx(
+            self, src_addr, src_ep, dst_ep, profile_id, cluster_id, data, lqi, rssi
+    ):
+        # intercept ZDO device announce frames
+        if dst_ep == 0 and cluster_id == 0x13:
+            nwk, rest = t.uint16_t.deserialize(data[1:])
+            ieee, _ = zigpy.types.EUI64.deserialize(rest)
+            LOGGER.info("New device joined: 0x%04x, %s", nwk, ieee)
+            self.handle_join(nwk, ieee, 0)
+
         try:
-            send_fut = self._pending.pop(message_tag)
-            send_fut.set_result(status)
+            if src_addr.address_mode == t.ADDRESS_MODE.NWK_AND_IEEE:
+                device = self.get_device(ieee=src_addr.ieee)
+            elif src_addr.address_mode == t.ADDRESS_MODE.NWK.value:
+                device = self.get_device(nwk=src_addr.address)
+            elif src_addr.address_mode == t.ADDRESS_MODE.IEEE.value:
+                device = self.get_device(ieee=src_addr.address)
+            else:
+                raise Exception(
+                    "Unsupported address mode in handle_rx: %s"
+                    % (src_addr.address_mode)
+                )
         except KeyError:
-            LOGGER.warning("Unexpected message send failure")
-        except asyncio.futures.InvalidStateError as exc:
+            LOGGER.debug("Received frame from unknown device: 0x%04x", src_addr.address)
+            return
+
+        device.radio_details(lqi, rssi)
+        self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
+
+    def handle_tx_confirm(self, req_id, status):
+        try:
+            self._pending[req_id].result.set_result(status)
+            return
+        except KeyError as exc:
+            LOGGER.warning(
+                "Unexpected transmit confirm for request id %s, Status: 0x%02x, %s",
+                req_id,
+                status,
+                exc,
+            )
+        except asyncio.InvalidStateError as exc:
             LOGGER.debug(
                 "Invalid state on future - probably duplicate response: %s", exc
             )
 
-    @zigpy.util.retryable_request
-    async def request(
-        self,
-        device,
-        profile,
-        cluster,
-        src_ep,
-        dst_ep,
-        sequence,
-        data,
-        expect_reply=True,
-        use_ieee=False,
-    ):
-        src_ep = 1 if dst_ep else 0  # ZiGate only support endpoint 1
-        LOGGER.debug(
-            "request %s",
-            (
-                device.nwk,
-                profile,
-                cluster,
-                src_ep,
-                dst_ep,
-                sequence,
-                data,
-                expect_reply,
-                use_ieee,
-            ),
-        )
-        req_id = self.get_sequence()
-        send_fut = asyncio.Future()
-        self._pending[req_id] = send_fut
-        try:
-            v, lqi = await self._api.raw_aps_data_request(
-                device.nwk, src_ep, dst_ep, profile, cluster, data
-            )
-        except NoResponseError:
-            return 1, "ZiGate doesn't answer to command"
 
-        if v[0] != 0:
-            self._pending.pop(req_id)
-            return v[0], "Message send failure {}".format(v[0])
+class ConBeeDevice(zigpy.device.Device):
+    """Zigpy Device representing Coordinator."""
 
-        # Commented out for now
-        # Currently (Firmware 3.1a) only send APS Data confirm in case of failure
-        # https://github.com/fairecasoimeme/ZiGate/issues/239
-        #         try:
-        #             v = await asyncio.wait_for(send_fut, 120)
-        #         except asyncio.TimeoutError:
-        #             return 1, "timeout waiting for message %s send ACK" % (sequence, )
-        #         finally:
-        #             self._pending.pop(req_id)
-        #         return v, "Message sent"
-        return 0, "Message sent"
+    async def add_to_group(self, grp_id: int, name: str = None) -> None:
+        group = self.application.groups.add_group(grp_id, name)
 
-    async def permit_ncp(self, time_s=60):
-        assert 0 <= time_s <= 254
-        status, lqi = await self._api.permit_join(time_s)
-        if status[0] != 0:
-            await self._api.reset()
+        for epid in self.endpoints:
+            if not epid:
+                continue  # skip ZDO
+            group.add_member(self.endpoints[epid])
+        return [0]
 
-    async def broadcast(
-        self,
-        profile,
-        cluster,
-        src_ep,
-        dst_ep,
-        grpid,
-        radius,
-        sequence,
-        data,
-        broadcast_address,
-    ):
-        LOGGER.debug("Broadcast not implemented.")
+    async def remove_from_group(self, grp_id: int) -> None:
+        for epid in self.endpoints:
+            if not epid:
+                continue  # skip ZDO
+            self.application.groups[grp_id].remove_member(self.endpoints[epid])
+        return [0]
 
-
-class ZiGateDevice(zigpy.device.Device):
     @property
     def manufacturer(self):
-        return "ZiGate"
+        return "dresden elektronik"
 
     @property
     def model(self):
-        return "ZiGate"
+        return "ConBee"
+
+    @classmethod
+    async def new(cls, application, ieee, nwk):
+        """Create or replace zigpy device."""
+        dev = cls(application, ieee, nwk)
+
+        if ieee in application.devices:
+            from_dev = application.get_device(ieee=ieee)
+            dev.status = from_dev.status
+            dev.node_desc = from_dev.node_desc
+            for ep_id, from_ep in from_dev.endpoints.items():
+                if not ep_id:
+                    continue  # Skip ZDO
+                ep = dev.add_endpoint(ep_id)
+                ep.profile_id = from_ep.profile_id
+                ep.device_type = from_ep.device_type
+                ep.status = from_ep.status
+                ep.in_clusters = from_ep.in_clusters
+                ep.out_clusters = from_ep.out_clusters
+        else:
+            application.devices[ieee] = dev
+            await dev._initialize()
+
+        return dev
