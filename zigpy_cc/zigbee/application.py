@@ -3,6 +3,10 @@ import binascii
 import logging
 import os
 
+from zigpy.profiles import zha
+
+from zigpy.zdo.types import ZDOCmd
+
 import zigpy.application
 import zigpy.device
 import zigpy.endpoint
@@ -14,9 +18,11 @@ from zigpy_cc import types as t
 # from zigpy_cc.api import NetworkParameter, NetworkState, Status
 from zigpy_cc.api import API
 from zigpy_cc.const import Constants
+from zigpy_cc.uart import UnpiFrame
 from zigpy_cc.zigbee.nv_items import Items
-from zigpy_cc.types import Subsystem, NetworkOptions, ZnpVersion
+from zigpy_cc.types import Subsystem, NetworkOptions, ZnpVersion, CommandType
 from zigpy_cc.zigbee.start_znp import initialise, start_znp
+from zigpy_cc.zpi_object import ZpiObject
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,9 +39,8 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         self._pending = zigpy.util.Requests()
 
-        self._nwk = 0
         self.discovering = False
-        self.version = 0
+        self.version = {}
 
     async def _reset_watchdog(self):
         while True:
@@ -51,9 +56,16 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         self.version = await self._api.version()
         ver = ZnpVersion(self.version['product']).name
         LOGGER.debug("Detected znp version '%s' (%s)", ver, self.version)
-        options = NetworkOptions()
-        backupPath = ""
-        await start_znp(self._api, self.version['product'], options, backupPath)
+
+        if auto_form:
+            await self.form_network()
+
+        data = await self._api.request(Subsystem.UTIL, 'getDeviceInfo', {})
+        self._ieee = data.payload['ieeeaddr']
+        self._nwk = data.payload['shortaddr']
+
+        # add coordinator
+        self.handle_join(self.nwk, self.ieee, 0)
 
     async def force_remove(self, dev):
         """Forcibly remove device from NCP."""
@@ -61,16 +73,10 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
     async def form_network(self, channel=15, pan_id=None, extended_pan_id=None):
         LOGGER.info("Forming network")
-        if self._api.network_state == NetworkState.CONNECTED.value:
-            return
-
-        await self._api.change_network_state(NetworkState.CONNECTED.value)
-        for _ in range(10):
-            await self._api.device_state()
-            if self._api.network_state == NetworkState.CONNECTED.value:
-                return
-            await asyncio.sleep(CHANGE_NETWORK_WAIT)
-        raise Exception("Could not form network.")
+        options = NetworkOptions()
+        backupPath = ""
+        status = await start_znp(self._api, self.version['product'], options, backupPath)
+        LOGGER.debug("ZNP started, status: %s", status)
 
     async def mrequest(
             self,
@@ -146,30 +152,31 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             req_id,
             binascii.hexlify(data),
         )
-        dst_addr_ep = t.DeconzAddressEndpoint()
-        dst_addr_ep.endpoint = t.uint8_t(dst_ep)
-        if use_ieee:
-            dst_addr_ep.address_mode = t.uint8_t(t.ADDRESS_MODE.IEEE)
-            dst_addr_ep.address = device.ieee
-        else:
-            dst_addr_ep.address_mode = t.uint8_t(t.ADDRESS_MODE.NWK)
-            dst_addr_ep.address = device.nwk
 
         with self._pending.new(req_id) as req:
+            obj = ZpiObject.from_cluster(cluster, data)
+
             try:
-                await self._api.aps_data_request(
-                    req_id, dst_addr_ep, profile, cluster, min(1, src_ep), data
-                )
+                await self._api.request_raw(obj)
             except zigpy_cc.exception.CommandError as ex:
                 return ex.status, "Couldn't enqueue send data request: {}".format(ex)
 
-            r = await asyncio.wait_for(req.result, SEND_CONFIRM_TIMEOUT)
+            return 0, "message send success"
 
-            if r:
-                LOGGER.warning("Error while sending %s req id frame: 0x%02x", req_id, r)
-                return r, "message send failure"
-
-            return r, "message send success"
+        #     try:
+        #         await self._api.aps_data_request(
+        #             req_id, dst_addr_ep, profile, cluster, min(1, src_ep), data
+        #         )
+        #     except zigpy_cc.exception.CommandError as ex:
+        #         return ex.status, "Couldn't enqueue send data request: {}".format(ex)
+        #
+        #     r = await asyncio.wait_for(req.result, SEND_CONFIRM_TIMEOUT)
+        #
+        #     if r:
+        #         LOGGER.warning("Error while sending %s req id frame: 0x%02x", req_id, r)
+        #         return r, "message send failure"
+        #
+        #     return r, "message send success"
 
     async def broadcast(
             self,
@@ -218,34 +225,74 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         assert 0 <= time_s <= 254
         await self._api.write_parameter(NetworkParameter.permit_join, time_s)
 
-    def handle_rx(
-            self, src_addr, src_ep, dst_ep, profile_id, cluster_id, data, lqi, rssi
-    ):
-        # intercept ZDO device announce frames
-        if dst_ep == 0 and cluster_id == 0x13:
-            nwk, rest = t.uint16_t.deserialize(data[1:])
-            ieee, _ = zigpy.types.EUI64.deserialize(rest)
-            LOGGER.info("New device joined: 0x%04x, %s", nwk, ieee)
+    def handle_znp(self, obj: ZpiObject):
+        if obj.type != t.CommandType.AREQ:
+            return
+
+        # if obj.subsystem == t.Subsystem.ZDO and obj.command == 'tcDeviceInd':
+        #     nwk = obj.payload['nwkaddr']
+        #     rest = obj.payload['extaddr'][2:].encode("ascii")
+        #     ieee, _ = zigpy.types.EUI64.deserialize(rest)
+        #     LOGGER.info("New device joined: 0x%04x, %s", nwk, ieee)
+        #     self.handle_join(nwk, ieee, obj.payload['parentaddr'])
+
+        frame = obj.to_unpi_frame()
+
+        profile_id = zha.PROFILE_ID
+        src_ep = 0
+        dst_ep = 0
+        lqi = 0
+        rssi = 0
+
+
+        if obj.subsystem == t.Subsystem.ZDO and obj.command == 'endDeviceAnnceInd':
+            nwk = obj.payload['nwkaddr']
+            cluster_id = ZDOCmd.Device_annce
+            tsn = b'\x00'
+            data = tsn + frame.data[2:]
+            ieee = obj.payload['ieeeaddr']
+            LOGGER.info("New device joined: %s, %s", nwk, ieee)
             self.handle_join(nwk, ieee, 0)
 
+        elif obj.subsystem == t.Subsystem.AF and (obj.command == 'incomingMsg' or obj.command == 'incomingMsgExt'):
+            nwk = obj.payload['srcaddr']
+            cluster_id = obj.payload['clusterid']
+            src_ep = obj.payload['srcendpoint']
+            dst_ep = obj.payload['dstendpoint']
+            data = obj.payload['data']
+            lqi = obj.payload['linkquality']
+        else:
+            LOGGER.warning("Unhandled message: %s %s", obj.subsystem, obj.command)
+            return
+
         try:
-            if src_addr.address_mode == t.ADDRESS_MODE.NWK_AND_IEEE:
-                device = self.get_device(ieee=src_addr.ieee)
-            elif src_addr.address_mode == t.ADDRESS_MODE.NWK.value:
-                device = self.get_device(nwk=src_addr.address)
-            elif src_addr.address_mode == t.ADDRESS_MODE.IEEE.value:
-                device = self.get_device(ieee=src_addr.address)
-            else:
-                raise Exception(
-                    "Unsupported address mode in handle_rx: %s"
-                    % (src_addr.address_mode)
-                )
+            device = self.get_device(nwk=nwk)
         except KeyError:
-            LOGGER.debug("Received frame from unknown device: 0x%04x", src_addr.address)
+            LOGGER.debug("Received frame from unknown device: %s", nwk)
             return
 
         device.radio_details(lqi, rssi)
         self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
+
+        #
+        # try:
+        #     if src_addr.address_mode == t.ADDRESS_MODE.NWK_AND_IEEE:
+        #         device = self.get_device(ieee=src_addr.ieee)
+        #     elif src_addr.address_mode == t.ADDRESS_MODE.NWK.value:
+        #         device = self.get_device(nwk=src_addr.address)
+        #     elif src_addr.address_mode == t.ADDRESS_MODE.IEEE.value:
+        #         device = self.get_device(ieee=src_addr.address)
+        #     else:
+        #         raise Exception(
+        #             "Unsupported address mode in handle_rx: %s"
+        #             % (src_addr.address_mode)
+        #         )
+        # except KeyError:
+        #     LOGGER.debug("Received frame from unknown device: 0x%04x", src_addr.address)
+        #     return
+        #
+        # device.radio_details(lqi, rssi)
+        # self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
 
     def handle_tx_confirm(self, req_id, status):
         try:
@@ -264,7 +311,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             )
 
 
-class ConBeeDevice(zigpy.device.Device):
+class CCDevice(zigpy.device.Device):
     """Zigpy Device representing Coordinator."""
 
     async def add_to_group(self, grp_id: int, name: str = None) -> None:

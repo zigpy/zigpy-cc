@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+from zigpy_cc.exception import CommandError
 from . import uart
 from .definition import Definition
 from .types import Subsystem, CommandType, Timeouts
@@ -38,6 +39,7 @@ class Waiter:
 
         return True
 
+
 class API:
     def __init__(self):
         self._uart = None
@@ -64,23 +66,27 @@ class API:
     async def _command(self, subsystem, command, payload) -> ZpiObject:
         return await self.request(subsystem, command, payload)
 
-    async def request(self, subsystem, command, payload, expectedStatus = [0]):
+    async def request(self, subsystem, command, payload, expectedStatus=[0]):
+        obj = self._create_obj(subsystem, command, payload)
+        return await self.request_raw(obj, expectedStatus)
+
+    async def request_raw(self, obj, expectedStatus=[0]):
         """
         TODO add queue
         """
-        obj = self._create_obj(subsystem, command, payload)
         LOGGER.debug("<-- %s", obj)
-
         frame = obj.to_unpi_frame()
 
         if obj.type == CommandType.SREQ:
             timeout = Timeouts.SREQ
-            waiter = self.wait_for(CommandType.SRSP, subsystem, command, {}, timeout)
+            waiter = self.wait_for(CommandType.SRSP, obj.subsystem, obj.command, {}, timeout)
             self._uart.send(frame)
             result = await waiter.wait()
             if result and 'status' in result.payload and result.payload['status'] not in expectedStatus:
-                raise Exception(
-                    "SREQ '{}' failed with status '{}' (expected '{}')".format(command, result.payload['status'], expectedStatus)
+                raise CommandError(
+                    result.payload['status'],
+                    "SREQ '{}' failed with status '{}' (expected '{}')".format(obj.command, result.payload['status'],
+                                                                               expectedStatus),
                 )
             else:
                 return result
@@ -108,11 +114,14 @@ class API:
         #     self._awaiting.pop(seq)
         #     raise
 
-    def wait_for(self, type, subsystem, command, payload = {}, timeout = Timeouts.default):
+    def wait_for(self, type, subsystem, command, payload={}, timeout=Timeouts.default):
         waiter = Waiter(type, subsystem, command, payload, timeout)
         self._waiters.append(waiter)
 
         return waiter
+
+    async def aps_data_request(self, req_id, dst_addr_ep, profile, cluster, src_ep, data):
+        raise Exception('Not implemented')
 
     def data_received(self, frame):
         obj = ZpiObject.from_unpi_frame(frame)
@@ -125,10 +134,13 @@ class API:
         # else:
         #     LOGGER.debug('NOT A RESPONSE %s', obj)
 
+        if self._app != None:
+            self._app.handle_znp(obj)
+
         try:
             getattr(self, "_handle_%s" % (obj.command,))(obj)
         except AttributeError as e:
-            # LOGGER.warning(e)
+            # LOGGER.debug(e)
             pass
 
     async def version(self):
@@ -140,10 +152,15 @@ class API:
     def _handle_version(self, data):
         LOGGER.debug("Version response: %s", data.payload)
 
+    def _handle_getDeviceInfo(self, data):
+        LOGGER.debug("Device info: %s", data.payload)
+
+    def _handle_srcRtgInd(self, data):
+        pass
+
     def _create_obj(self, subsystem, command, payload):
         cmd = next(c for c in Definition[subsystem] if c["name"] == command)
 
         return ZpiObject(
             cmd["type"], subsystem, command, cmd["ID"], payload, cmd["request"]
         )
-

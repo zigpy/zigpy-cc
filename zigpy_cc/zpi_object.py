@@ -49,6 +49,21 @@ class ZpiObject:
         )
 
     @classmethod
+    def from_cluster(cls, cluster, data):
+        subsystem = Subsystem.from_cluster(cluster)
+        cmd = next(
+            c for c in Definition[subsystem] if c["ID"] == cluster.value
+        )
+        parameters = (
+            cmd["response"] if cmd["type"] == CommandType.SRSP else cmd["request"]
+        )
+        payload = cls.read_parameters(data[1:], parameters)
+
+        return cls(
+            cmd["type"], subsystem, cmd["name"], cmd["ID"], payload, parameters
+        )
+
+    @classmethod
     def read_parameters(cls, data: bytes, parameters):
         # print(parameters)
         buffalo = Buffalo(data)
@@ -76,6 +91,6 @@ class ZpiObject:
         return res
 
     def __str__(self) -> str:
-        command_name = CommandType(self.type).name
+        command_type = CommandType(self.type).name
         subsystem = Subsystem(self.subsystem).name
-        return "{} {} {} {}".format(command_name, subsystem, self.command, self.payload)
+        return "{} {} {} {}".format(command_type, subsystem, self.command, self.payload)

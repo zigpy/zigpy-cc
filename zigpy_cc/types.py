@@ -1,5 +1,7 @@
 import enum
 
+import zigpy.zdo.types as t
+
 
 def deserialize(data, schema):
     result = []
@@ -158,8 +160,142 @@ class Struct:
         return r
 
 
-class Address:
+class List(list):
+    _length = None
+    _itemtype = None
+
+    def serialize(self):
+        assert self._length is None or len(self) == self._length
+        return b"".join([self._itemtype(i).serialize() for i in self])
+
+    @classmethod
+    def deserialize(cls, data):
+        assert cls._itemtype is not None
+        r = cls()
+        while data:
+            item, data = cls._itemtype.deserialize(data)
+            r.append(item)
+        return r, data
+
+
+class FixedList(List):
+    _length = None
+    _itemtype = None
+
+    @classmethod
+    def deserialize(cls, data):
+        assert cls._itemtype is not None
+        r = cls()
+        for i in range(cls._length):
+            item, data = cls._itemtype.deserialize(data)
+            r.append(item)
+        return r, data
+
+
+class EUI64(FixedList):
+    _length = 8
+    _itemtype = uint8_t
+
+    def __repr__(self):
+        return ":".join("%02x" % i for i in self[::-1])
+
+    def __hash__(self):
+        return hash(repr(self))
+
+
+class HexRepr:
+    def __repr__(self):
+        return ("0x{:0" + str(self._size * 2) + "x}").format(self)
+
+    def __str__(self):
+        return ("0x{:0" + str(self._size * 2) + "x}").format(self)
+
+
+class GroupId(HexRepr, uint16_t):
     pass
+
+
+class NWK(HexRepr, uint16_t):
+    pass
+
+
+class PanId(HexRepr, uint16_t):
+    pass
+
+
+class ExtendedPanId(EUI64):
+    pass
+
+
+class DeconzAddress(Struct):
+    _fields = [
+        # The address format (AddressMode)
+        ("address_mode", ADDRESS_MODE),
+        ("address", EUI64),
+    ]
+
+    @classmethod
+    def deserialize(cls, data):
+        r = cls()
+        mode, data = ADDRESS_MODE.deserialize(data)
+        r.address_mode = mode
+        if mode in [ADDRESS_MODE.GROUP, ADDRESS_MODE.NWK, ADDRESS_MODE.NWK_AND_IEEE]:
+            r.address, data = NWK.deserialize(data)
+        elif mode == ADDRESS_MODE.IEEE:
+            r.address, data = EUI64.deserialize(data)
+        if mode == ADDRESS_MODE.NWK_AND_IEEE:
+            r.ieee, data = EUI64.deserialize(data)
+        return r, data
+
+    def serialize(self):
+        r = super().serialize()
+        if self.address_mode == ADDRESS_MODE.NWK_AND_IEEE:
+            r += self.ieee.serialize()
+        return r
+
+
+class AddressEndpoint(Struct):
+    _fields = [
+        # The address format (AddressMode)
+        ("address_mode", ADDRESS_MODE),
+        ("address", EUI64),
+        ("endpoint", uint8_t),
+    ]
+
+    @classmethod
+    def deserialize(cls, data):
+        r = cls()
+        mode, data = ADDRESS_MODE.deserialize(data)
+        r.address_mode = mode
+        a = e = None
+        if mode == ADDRESS_MODE.GROUP:
+            a, data = GroupId.deserialize(data)
+        elif mode == ADDRESS_MODE.NWK:
+            a, data = NWK.deserialize(data)
+        elif mode == ADDRESS_MODE.IEEE:
+            a, data = EUI64.deserialize(data)
+        setattr(r, cls._fields[1][0], a)
+        if mode in [ADDRESS_MODE.NWK, ADDRESS_MODE.IEEE]:
+            e, data = uint8_t.deserialize(data)
+        setattr(r, cls._fields[2][0], e)
+        return r, data
+
+    def serialize(self):
+        r = uint8_t(self.address_mode).serialize()
+        if self.address_mode == ADDRESS_MODE.NWK:
+            r += NWK(self.address).serialize()
+        elif self.address_mode == ADDRESS_MODE.GROUP:
+            r += GroupId(self.address).serialize()
+        elif self.address_mode == ADDRESS_MODE.IEEE:
+            r += EUI64(self.address).serialize()
+        if self.address_mode in (ADDRESS_MODE.NWK, ADDRESS_MODE.IEEE):
+            r += uint8_t(self.endpoint).serialize()
+        return r
+
+
+class Key(FixedList):
+    _itemtype = uint8_t
+    _length = 16
 
 
 class Timeouts:
@@ -194,6 +330,13 @@ class Subsystem(uint8_t, enum.Enum):
     APP = 9
     APP_CNF = 15
     GREENPOWER = 21
+
+    @staticmethod
+    def from_cluster(cluster):
+        if cluster.__class__ == t.ZDOCmd:
+            return Subsystem.ZDO
+
+        raise Exception("Not implemented", cluster.__class__)
 
 
 class ParameterType(uint8_t, enum.Enum):

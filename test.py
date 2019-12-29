@@ -1,23 +1,28 @@
 import asyncio
 import logging
 
+import coloredlogs as coloredlogs
+
 from zigpy_cc.api import API
 from zigpy_cc.zigbee import application
 
-logging.basicConfig(level=logging.DEBUG)
-logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
-logging.getLogger('zigpy_cc.api').setLevel(logging.INFO)
+fmt = '%(name)s %(levelname)s %(message)s'
+coloredlogs.install(level='DEBUG', fmt=fmt)
 
-path = "/dev/ttyACM0"
+
+# logging.basicConfig(level=logging.DEBUG)
+logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
+# logging.getLogger('zigpy_cc.api').setLevel(logging.INFO)
 
 
 async def main():
     api = API()
-    await api.connect(path)
-    app = application.ControllerApplication(api, database_file=None)
+    await api.connect("/dev/ttyACM0")
+    app = application.ControllerApplication(api, database_file='store.db')
     await app.startup(auto_form=False)
-
+    await app.form_network()
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
+loop.run_forever()
 loop.close()

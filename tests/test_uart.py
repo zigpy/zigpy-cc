@@ -50,14 +50,14 @@ def test_data_received_chunk_frame(gw):
     assert gw._api.data_received.call_count == 0
     gw.data_received(data[-4:])
     assert gw._api.data_received.call_count == 1
-    eq(gw._api.data_received.call_args[0][0], uart.UnpiFrame(3, 1, 2, bytearray(data[4:-1]), 14, 218))
+    eq(gw._api.data_received.call_args[0][0], uart.UnpiFrame(3, 1, 2, data[4:-1], 14, 218))
 
 
 def test_data_received_full_frame(gw):
     data = b"\xfe\x0ea\x02\x02\x00\x02\x06\x03\x90\x154\x01\x02\x01\x00\x00\x00\xdb"
     gw.data_received(data)
     assert gw._api.data_received.call_count == 1
-    eq(gw._api.data_received.call_args[0][0], uart.UnpiFrame(3, 1, 2, bytearray(data[4:-1]), 14, 219))
+    eq(gw._api.data_received.call_args[0][0], uart.UnpiFrame(3, 1, 2, data[4:-1], 14, 219))
 
 
 def test_data_received_incomplete_frame(gw):

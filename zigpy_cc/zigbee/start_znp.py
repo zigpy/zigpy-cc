@@ -1,6 +1,8 @@
 import logging
 import os
 
+from zigpy.zcl.clusters.security import IasZone
+
 from zigpy_cc.api import API
 from zigpy_cc.const import Constants
 from zigpy_cc.types import NetworkOptions, Subsystem, ZnpVersion, CommandType
@@ -39,8 +41,7 @@ Endpoints = [
         appprofid=0x0104,
         appdeviceid=0x0400,
         appnumoutclusters=1,
-        # appoutclusterlist = [getCluster('ssIasZone').ID]
-        appoutclusterlist=[1280]
+        appoutclusterlist=[IasZone.cluster_id]
     ),
     # TERNCY: https://github.com/Koenkk/zigbee-herdsman/issues/82
     Endpoint(endpoint=0x6E, appprofid=0x0104),

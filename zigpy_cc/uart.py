@@ -21,7 +21,7 @@ MaxDataSize = 250
 
 class Parser:
     def __init__(self) -> None:
-        self.buffer = bytearray()
+        self.buffer = b''
 
     def write(self, b):
         self.buffer += bytes([b])
@@ -40,7 +40,7 @@ class Parser:
 
                     return frame
         else:
-            self.buffer = bytearray()
+            self.buffer = b''
 
         return None
 
@@ -65,7 +65,6 @@ class UnpiFrame:
         fcs = buffer[fcs_position]
 
         checksum = cls.calculate_checksum(buffer[1:fcs_position])
-
         if checksum == fcs:
             return cls(type, subsystem, command_id, data, length, fcs)
         else:
@@ -83,6 +82,8 @@ class UnpiFrame:
 
         return checksum
 
+    # def to_zdo(self):
+
     def to_buffer(self):
         length = len(self.data)
         res = b""
@@ -98,8 +99,8 @@ class UnpiFrame:
         return res
 
     def __str__(self) -> str:
-        return "{} - {} - {} - {} - [{}] - {}".format(
-            self.subsystem, self.command_id, self.type, self.length, self.data, self.fcs
+        return "{} - {} - {} - {} - {} - {}".format(
+            self.type, self.subsystem, self.command_id, self.length, self.data, self.fcs
         )
 
 
