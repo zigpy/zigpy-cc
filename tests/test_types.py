@@ -1,7 +1,28 @@
+from unittest import mock
+
+from zigpy.zcl import Cluster
+
 from zigpy.zdo.types import ZDOCmd
 
 from zigpy_cc import uart
+from zigpy_cc.types import NWK
 from zigpy_cc.zpi_object import ZpiObject
+
+def test_incomming_msg():
+    '''
+    zigpy_cc.api DEBUG --> AREQ AF incomingMsg
+    {'groupid': 0, 'clusterid': 0, 'srcaddr': 28294, 'srcendpoint': 1, 'dstendpoint': 1,
+    'wasbroadcast': 0, 'linkquality': 115, 'securityuse': 0, 'timestamp': 15812278,
+    'transseqnumber': 0, 'len': 25, 'data': b'\x18\x00\n\x05\x00B\x12lumi.sensor_switch'}
+
+    ZLC msg not ZDO
+    '''
+    epmock = mock.MagicMock()
+
+    cls = Cluster.from_id(epmock, 0)
+    hdr, data = cls.deserialize(b'\x18\x00\n\x05\x00B\x12lumi.sensor_switch')
+    assert str(data) == '[[<Attribute attrid=5 value=<TypeValue type=CharacterString, value=lumi.sensor_switch>>]]'
+    assert str(hdr) == '<ZCLHeader frame_control=<FrameControl frame_type=GLOBAL_COMMAND manufacturer_specific=False is_reply=False disable_default_response=True> manufacturer=None tsn=0 command_id=Command.Report_Attributes>'
 
 
 def test_from_unpi_frame():
@@ -45,6 +66,6 @@ zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128, 'n
 '''
 def test_from_cluster_id():
 
-    obj = ZpiObject.from_cluster(ZDOCmd.Node_Desc_req, b'\x03\x4a\xd0')
+    obj = ZpiObject.from_cluster(NWK(53322), ZDOCmd.Node_Desc_req, b'\x03\x4a\xd0')
 
-    assert str(obj) == "SREQ ZDO nodeDescReq {'dstaddr': 53322, 'nwkaddrofinterest': 0}"
+    assert str(obj) == "SREQ ZDO nodeDescReq {'dstaddr': 53322, 'nwkaddrofinterest': 53322}"

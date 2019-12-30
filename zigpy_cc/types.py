@@ -336,7 +336,7 @@ class Subsystem(uint8_t, enum.Enum):
         if cluster.__class__ == t.ZDOCmd:
             return Subsystem.ZDO
 
-        raise Exception("Not implemented", cluster.__class__)
+        raise Exception("Not implemented", cluster)
 
 
 class ParameterType(uint8_t, enum.Enum):

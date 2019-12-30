@@ -1,7 +1,14 @@
 import asyncio
 import logging
+from typing import List, Any
+
+from zigpy.endpoint import Endpoint
+
+from zigpy.zcl import Cluster
 
 from zigpy_cc.exception import CommandError
+from zigpy_cc.zcl import ZclDataPayload
+from zigpy_cc.zcl.zcl_frame import ZclFrame
 from . import uart
 from .definition import Definition
 from .types import Subsystem, CommandType, Timeouts
@@ -22,13 +29,17 @@ class Matcher:
 
 
 class Waiter:
-    def __init__(self, type: int, subsystem: int, command: str, payload, timeout: int):
+    def __init__(self, type: int, subsystem: int, command: str, payload, timeout: int, sequence):
         self.matcher = Matcher(type, subsystem, command, payload)
-        self.future = asyncio.Future()
+        self.future = asyncio.get_event_loop().create_future()
         self.timeout = timeout
+        self.sequence = sequence
 
     async def wait(self):
         return await asyncio.wait_for(self.future, self.timeout / 1000)
+
+    def set_result(self, result) -> None:
+        self.future.set_result(result)
 
     def match(self, obj: ZpiObject):
         matcher = self.matcher
@@ -44,7 +55,7 @@ class API:
     def __init__(self):
         self._uart = None
         self._seq = 1
-        self._waiters = []
+        self._waiters: List[Waiter] = []
         self._app = None
         self._proto_ver = None
 
@@ -114,8 +125,28 @@ class API:
         #     self._awaiting.pop(seq)
         #     raise
 
-    def wait_for(self, type, subsystem, command, payload={}, timeout=Timeouts.default):
-        waiter = Waiter(type, subsystem, command, payload, timeout)
+    def create_response_waiter(self, obj: ZpiObject, sequence=None):
+        waiter = self.get_response_waiter(obj, sequence)
+        if waiter:
+            LOGGER.debug("waiting for %d %s", sequence, obj.command)
+
+    def get_response_waiter(self, obj: ZpiObject, sequence=None):
+        if obj.type == CommandType.SREQ and obj.command == 'nodeDescReq':
+            payload = {'srcaddr': obj.payload['dstaddr']}
+            return self.wait_for(CommandType.AREQ, Subsystem.ZDO, 'nodeDescRsp', payload, sequence=sequence)
+
+        if obj.type == CommandType.SREQ and obj.command == 'activeEpReq':
+            payload = {'srcaddr': obj.payload['dstaddr']}
+            return self.wait_for(CommandType.AREQ, Subsystem.ZDO, 'activeEpRsp', payload, sequence=sequence)
+
+        if obj.type == CommandType.SREQ and obj.command == 'simpleDescReq':
+            payload = {'srcaddr': obj.payload['dstaddr']}
+            return self.wait_for(CommandType.AREQ, Subsystem.ZDO, 'simpleDescRsp', payload, sequence=sequence)
+
+        return None
+
+    def wait_for(self, type, subsystem, command, payload={}, timeout=Timeouts.default, sequence=None):
+        waiter = Waiter(type, subsystem, command, payload, timeout, sequence)
         self._waiters.append(waiter)
 
         return waiter
@@ -127,15 +158,28 @@ class API:
         obj = ZpiObject.from_unpi_frame(frame)
         LOGGER.debug('--> %s', obj)
 
+        to_remove = []
         for waiter in self._waiters:
-            if waiter.match(obj):
-                self._waiters.remove(waiter)
-                waiter.future.set_result(obj)
+            if waiter.future.done():
+                to_remove.append(waiter)
+            elif waiter.match(obj):
+                to_remove.append(waiter)
+                waiter.set_result(obj)
+                obj.sequence = waiter.sequence
         # else:
         #     LOGGER.debug('NOT A RESPONSE %s', obj)
 
+        for waiter in to_remove:
+            self._waiters.remove(waiter)
+
         if self._app != None:
-            self._app.handle_znp(obj)
+            if obj.command == 'incomingMsg' or obj.command == 'incomingMsgExt':
+                # data = ZclDataPayload(obj)
+                # self._app.handle_zcl(data)
+
+                self._app.handle_znp(obj)
+            else:
+                self._app.handle_znp(obj)
 
         try:
             getattr(self, "_handle_%s" % (obj.command,))(obj)

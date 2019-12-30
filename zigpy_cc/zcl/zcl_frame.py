@@ -23,6 +23,7 @@ class ZclFrame:
 
     @classmethod
     def parse_header(cls, buffalo):
+        pass
 
     @classmethod
     def parse_payload(cls, header, cluster, buffalo):

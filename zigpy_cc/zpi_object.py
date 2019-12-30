@@ -15,6 +15,7 @@ BufferAndListTypes = [
 class ZpiObject:
     def __init__(self, type, subsystem, command, commandId, payload, parameters):
         self.type = type
+        self.sequence = None
         self.subsystem = subsystem
         self.command = command
         self.command_id = commandId
@@ -49,18 +50,20 @@ class ZpiObject:
         )
 
     @classmethod
-    def from_cluster(cls, cluster, data):
+    def from_cluster(cls, nwk, cluster, data):
         subsystem = Subsystem.from_cluster(cluster)
         cmd = next(
             c for c in Definition[subsystem] if c["ID"] == cluster.value
         )
+        name = cmd['name']
         parameters = (
             cmd["response"] if cmd["type"] == CommandType.SRSP else cmd["request"]
         )
-        payload = cls.read_parameters(data[1:], parameters)
+
+        payload = cls.read_parameters(nwk.to_bytes(2, 'little') + data[1:], parameters)
 
         return cls(
-            cmd["type"], subsystem, cmd["name"], cmd["ID"], payload, parameters
+            cmd["type"], subsystem, name, cmd["ID"], payload, parameters
         )
 
     @classmethod

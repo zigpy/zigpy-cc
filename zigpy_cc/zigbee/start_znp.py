@@ -66,36 +66,29 @@ async def needsToBeInitialised(znp: API, version, options):
         await validate_item(znp, Items.channelList(options.channelList), 'channelList')
         await validate_item(znp, Items.networkKeyDistribute(options.networkKeyDistribute), 'networkKeyDistribute')
 
-        # TODO
-        """
-        if (version === ZnpVersion.zStack3x0) {
-            await validateItem(znp, Items.networkKey(options.networkKey), 'networkKey')
-        } else {
-            await validateItem(
+        if version == ZnpVersion.zStack3x0:
+            await validate_item(znp, Items.networkKey(options.networkKey), 'networkKey')
+        else:
+            await validate_item(
                 znp, Items.networkKey(options.networkKey), 'networkKey', Subsystem.SAPI, 'readConfiguration'
             )
-        }
 
-        try {
-            await validateItem(znp, Items.panID(options.panID), 'panID')
-            await validateItem(znp, Items.extendedPanID(options.extendedPanID), 'extendedPanID')
-        } catch (error) {
-            if (version === ZnpVersion.zStack30x || version === ZnpVersion.zStack3x0) {
-                // Zigbee-herdsman =< 0.6.5 didn't set the panID and extendedPanID on zStack 3.
-                // As we are now checking it, it would trigger a reinitialise which will cause users
-                // to lose their network. Therefore we are ignoring this case.
-                // When the panID has never been set, it will be [0xFF, 0xFF].
-                const current = await znp.request(Subsystem.SYS, 'osalNvRead', Items.panID(options.panID))
-                if (Buffer.compare(current.payload.value, Buffer.from([0xFF, 0XFF])) === 0) {
-                    debug('Skip enforcing panID because a random panID is used')
-                } else {
-                    throw error
-                }
-            } else {
-                throw error
-            }
-        }
-        """
+        try:
+            await validate_item(znp, Items.panID(options.panID), 'panID')
+            await validate_item(znp, Items.extendedPanID(options.extendedPanID), 'extendedPanID')
+        except Exception as error:
+            if version == ZnpVersion.zStack30x or version == ZnpVersion.zStack3x0:
+                # Zigbee-herdsman =< 0.6.5 didn't set the panID and extendedPanID on zStack 3.
+                # As we are now checking it, it would trigger a reinitialise which will cause users
+                # to lose their network. Therefore we are ignoring this case.
+                # When the panID has never been set, it will be [0xFF, 0xFF].
+                current = await znp.request(Subsystem.SYS, 'osalNvRead', Items.panID(options.panID))
+                if current.payload.value == bytes([0xFF, 0XFF]):
+                    LOGGER.debug('Skip enforcing panID because a random panID is used')
+                else:
+                    raise error
+            else:
+                raise error
 
         return False
     except Exception as e:

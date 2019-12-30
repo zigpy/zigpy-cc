@@ -184,7 +184,7 @@ async def connect(port, baudrate, api, loop=None):
     if loop is None:
         loop = asyncio.get_event_loop()
 
-    connected_future = asyncio.Future()
+    connected_future = loop.create_future()
     protocol = Gateway(api, connected_future)
 
     _, protocol = await serial_asyncio.create_serial_connection(

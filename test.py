@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import coloredlogs as coloredlogs
+from serial import SerialException
 
 from zigpy_cc.api import API
 from zigpy_cc.zigbee import application
@@ -16,8 +17,18 @@ logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
 
 
 async def main():
+    # noinspection PyUnresolvedReferences
+    import zhaquirks
+
     api = API()
-    await api.connect("/dev/ttyACM0")
+    while True:
+        try:
+            await api.connect("/dev/ttyACM0")
+            break
+        except SerialException as e:
+            print(e)
+            await asyncio.sleep(2)
+
     app = application.ControllerApplication(api, database_file='store.db')
     await app.startup(auto_form=False)
     await app.form_network()

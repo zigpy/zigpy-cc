@@ -177,6 +177,44 @@ async def test_request(app):
         b'\x01\xa2\x2e'
     )
 
+
+'''
+zigpy_cc.api DEBUG <-- SREQ ZDO nodeDescReq {'dstaddr': 53322, 'nwkaddrofinterest': 0}
+zigpy_cc.api DEBUG --> SRSP ZDO nodeDescReq {'status': 0}
+zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128, 'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0, 'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 0, 'maxbuffersize': 0, 'maxintransfersize': 0, 'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
+'''
+
+
+@pytest.mark.skip
+@pytest.mark.asyncio
+async def test_node_desc_rsp(app, ieee, nwk):
+    dev = zigpy.device.Device(app, ieee, nwk)
+
+    desc = zdo_t.NodeDescriptor()
+
+    fut = asyncio.Future()
+    fut.set_result([0, 'message send success'])
+    app._api.request_raw = mock.MagicMock(return_value=fut)
+
+    async def nested():
+        await asyncio.sleep(1)
+        print('len', len(app._pending))
+        pass
+
+    await asyncio.wait(
+        [
+            dev.get_node_descriptor(),
+            nested(),
+        ],
+        timeout=2,
+    )
+
+
+    print(dev.node_desc)
+
+    assert isinstance(dev.node_desc, zdo_t.NodeDescriptor)
+    assert False
+
 # def _test_rx(app, addr_ieee, addr_nwk, device, data):
 #     app.get_device = mock.MagicMock(return_value=device)
 #     app.devices = (EUI64(addr_ieee.address),)

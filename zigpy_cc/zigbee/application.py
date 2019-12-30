@@ -1,11 +1,8 @@
 import asyncio
 import binascii
 import logging
-import os
 
-from zigpy.profiles import zha
-
-from zigpy.zdo.types import ZDOCmd
+from zigpy.zcl.foundation import Command
 
 import zigpy.application
 import zigpy.device
@@ -14,14 +11,14 @@ import zigpy.exceptions
 import zigpy.types
 import zigpy.util
 import zigpy_cc.exception
+from zigpy.profiles import zha
+from zigpy.zcl import Cluster
+from zigpy.zdo.types import ZDOCmd
 from zigpy_cc import types as t
-# from zigpy_cc.api import NetworkParameter, NetworkState, Status
 from zigpy_cc.api import API
-from zigpy_cc.const import Constants
-from zigpy_cc.uart import UnpiFrame
-from zigpy_cc.zigbee.nv_items import Items
-from zigpy_cc.types import Subsystem, NetworkOptions, ZnpVersion, CommandType
-from zigpy_cc.zigbee.start_znp import initialise, start_znp
+from zigpy_cc.types import Subsystem, NetworkOptions, ZnpVersion
+from zigpy_cc.zcl import ZclDataPayload
+from zigpy_cc.zigbee.start_znp import start_znp
 from zigpy_cc.zpi_object import ZpiObject
 
 LOGGER = logging.getLogger(__name__)
@@ -45,7 +42,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
     async def _reset_watchdog(self):
         while True:
             await self._api.write_parameter(NetworkParameter.watchdog_ttl, 3600)
-            await asyncio.sleep(1200)
+            await asyncio.sleep(1.2)
 
     async def shutdown(self):
         """Shutdown application."""
@@ -150,14 +147,51 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             "Sending Zigbee request with tsn %s under %s request id, data: %s",
             sequence,
             req_id,
-            binascii.hexlify(data),
+            data,
         )
 
         with self._pending.new(req_id) as req:
-            obj = ZpiObject.from_cluster(cluster, data)
+            try:
+                # TODO FIX ERROR
+                """
+                zigpy_cc.api DEBUG --> AREQ ZDO simpleDescRsp {'srcaddr': 6604, 'status': 0, 'nwkaddr': 6604, 'len': 30, 'endpoint': 1, 'profileid': 260, 'deviceid': 260, 'deviceversion': 1, 'numinclusters': 4, 'inclusterlist': [0, 3, 65535, 25], 'numoutclusters': 7, 'outclusterlist': [0, 4, 3, 6, 8, 5, 25]}
+                zigpy_cc.zigbee.application INFO REPLY for 9 simpleDescRsp
+                zigpy_cc.zigbee.application INFO handle_message simpleDescRsp
+                zigpy.endpoint INFO [0x19cc:1] Discovered endpoint information: <SimpleDescriptor endpoint=1 profile=260 device_type=260 device_version=1 input_clusters=[0, 3, 65535, 25] output_clusters=[0, 4, 3, 6, 8, 5, 25]>
+                zigpy.device DEBUG [0x19cc] Extending timeout for 0x0b request
+                zigpy_cc.zigbee.application DEBUG Sending Zigbee request with tsn 11 under 12 request id, data: b'\x00\x0b\x00\x04\x00\x05\x00'
+                zigpy_cc.zigbee.application ERROR from_cluster failed ('Not implemented', 0)
+                Traceback (most recent call last):
+                  File "/home/sanya/repos/zigpy/zigpy-cc/zigpy_cc/zigbee/application.py", line 155, in request
+                    obj = ZpiObject.from_cluster(device.nwk, cluster, data)
+                  File "/home/sanya/repos/zigpy/zigpy-cc/zigpy_cc/zpi_object.py", line 54, in from_cluster
+                    subsystem = Subsystem.from_cluster(cluster)
+                  File "/home/sanya/repos/zigpy/zigpy-cc/zigpy_cc/types.py", line 339, in from_cluster
+                    raise Exception("Not implemented", cluster)
+                Exception: ('Not implemented', 0)
+                profile 260
+                cluster 0
+                src_ep 1
+                dst_ep 1
+                sequence 1
+                data b'\x00\x0b\x00\x04\x00\x05\x00'
+                """
+                obj = ZpiObject.from_cluster(device.nwk, cluster, data)
+            except Exception as e:
+                LOGGER.exception('from_cluster failed %s', e)
+                print('profile', profile)
+                print('cluster', cluster)
+                print('src_ep', src_ep)
+                print('dst_ep', dst_ep)
+                print('sequence', dst_ep)
+                print('data', data)
+                raise e
 
             try:
+                if expect_reply:
+                    self._api.create_response_waiter(obj, sequence)
                 await self._api.request_raw(obj)
+
             except zigpy_cc.exception.CommandError as ex:
                 return ex.status, "Couldn't enqueue send data request: {}".format(ex)
 
@@ -237,30 +271,52 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         #     self.handle_join(nwk, ieee, obj.payload['parentaddr'])
 
         frame = obj.to_unpi_frame()
+        tsn = b'\x00'
+        if obj.sequence is not None:
+            LOGGER.info("REPLY for %d %s", obj.sequence, obj.command)
+            tsn = bytes([obj.sequence])
 
+        nwk = obj.payload['srcaddr'] if 'srcaddr' in obj.payload else None
         profile_id = zha.PROFILE_ID
         src_ep = 0
         dst_ep = 0
         lqi = 0
         rssi = 0
-
+        data = tsn + frame.data[2:]
 
         if obj.subsystem == t.Subsystem.ZDO and obj.command == 'endDeviceAnnceInd':
             nwk = obj.payload['nwkaddr']
             cluster_id = ZDOCmd.Device_annce
-            tsn = b'\x00'
-            data = tsn + frame.data[2:]
             ieee = obj.payload['ieeeaddr']
             LOGGER.info("New device joined: %s, %s", nwk, ieee)
             self.handle_join(nwk, ieee, 0)
 
+        elif obj.subsystem == t.Subsystem.ZDO and obj.command == 'nodeDescRsp':
+            '''
+            zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp
+            {'srcaddr': 53322, 'status': 128, 'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0,
+            'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 0, 'maxbuffersize': 0,
+            'maxintransfersize': 0, 'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
+            '''
+            cluster_id = ZDOCmd.Node_Desc_rsp
+
+        elif obj.subsystem == t.Subsystem.ZDO and obj.command == 'activeEpRsp':
+            cluster_id = ZDOCmd.Active_EP_rsp
+
+        elif obj.subsystem == t.Subsystem.ZDO and obj.command == 'simpleDescRsp':
+            cluster_id = ZDOCmd.Simple_Desc_rsp
+
         elif obj.subsystem == t.Subsystem.AF and (obj.command == 'incomingMsg' or obj.command == 'incomingMsgExt'):
-            nwk = obj.payload['srcaddr']
             cluster_id = obj.payload['clusterid']
             src_ep = obj.payload['srcendpoint']
             dst_ep = obj.payload['dstendpoint']
             data = obj.payload['data']
             lqi = obj.payload['linkquality']
+
+        elif obj.command == 'stateChangeInd':
+            LOGGER.info("State changed to: %s", obj.payload['state'])
+            return
+
         else:
             LOGGER.warning("Unhandled message: %s %s", obj.subsystem, obj.command)
             return
@@ -272,6 +328,8 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             return
 
         device.radio_details(lqi, rssi)
+        if obj.subsystem == t.Subsystem.ZDO:
+            LOGGER.info('handle_message %s', obj.command)
         self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
 
         #
@@ -293,6 +351,153 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         #
         # device.radio_details(lqi, rssi)
         # self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
+
+
+    def handle_zcl(self, dataPayload: ZclDataPayload):
+        # LOGGER.debug("Received ZCL data %s", dataPayload)
+
+        #if (dataPayload.frame && dataPayload.frame.Cluster.name === 'touchlink') {
+        #    // This is handled by touchlink
+        #     return
+        # }
+
+        nwk = dataPayload.address
+        try:
+            device: zigpy.device.Device = self.get_device(nwk=nwk)
+        except KeyError:
+            LOGGER.debug("Received ZCL frame from unknown device: %s", nwk)
+            return
+
+        # device.updateLastSeen()
+
+        # endpoint: zigpy.endpoint.Endpoint
+        #
+        try:
+            endpoint = device.endpoints[dataPayload.endpoint]
+        except KeyError:
+            LOGGER.debug("ZCL data is from unknown endpoint %d from device %s, creating it...", dataPayload.endpoint, nwk)
+            endpoint = device.add_endpoint(dataPayload.endpoint)
+
+        # cluster = Cluster.from_id(endpoint, dataPayload.clusterid)
+        # hdr, data = cluster.deserialize(dataPayload.data)
+        # LOGGER.info("ZLC: %s %s", hdr.command_id, data)
+        # LOGGER.debug("ZLC: %s", hdr)
+
+        profile = 0
+        device.handle_message(
+            profile,
+            dataPayload.clusterid,
+            dataPayload.endpoint,
+            dataPayload.dstendpoint,
+            dataPayload.data,
+        )
+        # endpoint.handle_message(profile, dataPayload.clusterid, hdr, data)
+
+        # if hdr.frame_control.is_general():
+        #     if hdr.command_id == Command.Report_Attributes:
+        #         pass
+        # else:
+        #     pass
+        #
+        # if hdr.command_id == Command.Read_Attributes_rsp or hdr.command_id == Command.Report_Attributes:
+        #     # Some device report, e.g. it's modelID through a readResponse or attributeReport
+        #     for key, value in data.items():
+        #         property = cluster.discover_attributes.ReportablePropertiesMapping[key]
+        #         if property && !device[property.key]:
+        #             property.set(value, device)
+        #
+        #     endpoint.saveClusterAttributeKeyValue(clusterName, data)
+
+        '''
+        // Parse command for event
+        let type: Events.MessagePayloadType = undefined
+        let data: KeyValue
+        let clusterName = undefined
+        const meta: {zclTransactionSequenceNumber?: number} = {}
+
+        const frame = dataPayload.frame
+        const command = frame.getCommand()
+        clusterName = frame.Cluster.name
+        meta.zclTransactionSequenceNumber = frame.Header.transactionSequenceNumber
+
+        if (frame.isGlobal()) {
+            if (frame.isCommand('report')) {
+                type = 'attributeReport'
+                data = ZclFrameConverter.attributeKeyValue(dataPayload.frame)
+            } else if (frame.isCommand('read')) {
+                type = 'read'
+                data = ZclFrameConverter.attributeList(dataPayload.frame)
+            } else if (frame.isCommand('write')) {
+                type = 'write'
+                data = ZclFrameConverter.attributeKeyValue(dataPayload.frame)
+            } else {
+                /* istanbul ignore else */
+                if (frame.isCommand('readRsp')) {
+                    type = 'readResponse'
+                    data = ZclFrameConverter.attributeKeyValue(dataPayload.frame)
+                }
+            }
+        } else {
+            /* istanbul ignore else */
+            if (frame.isSpecific()) {
+                if (Events.CommandsLookup[command.name]) {
+                    type = Events.CommandsLookup[command.name]
+                    data = dataPayload.frame.Payload
+                } else {
+                    debug.log("Skipping command '${command.name}' because it is missing from the lookup")
+                }
+            }
+        }
+
+        if (type === 'readResponse' || type === 'attributeReport') {
+            // Some device report, e.g. it's modelID through a readResponse or attributeReport
+            for (const [key, value] of Object.entries(data)) {
+                const property =  Device.ReportablePropertiesMapping[key]
+                if (property && !device[property.key]) {
+                    property.set(value, device)
+                }
+            }
+
+            endpoint.saveClusterAttributeKeyValue(clusterName, data)
+        }
+
+
+        if (type && data) {
+            const endpoint = device.getEndpoint(dataPayload.endpoint)
+            const linkquality = dataPayload.linkquality
+            const groupID = dataPayload.groupID
+            const eventData: Events.MessagePayload = {
+                type: type, device, endpoint, data, linkquality, groupID, cluster: clusterName, meta
+            }
+
+            this.emit(Events.Events.message, eventData)
+        }
+
+
+        const frame = dataPayload.frame
+
+        // Send a default response if necessary.
+        if (!frame.Header.frameControl.disableDefaultResponse) {
+            try {
+                await endpoint.defaultResponse(
+                    frame.getCommand().ID, 0, frame.Cluster.ID, frame.Header.transactionSequenceNumber,
+                )
+            } catch (error) {
+                debug.error("Default response to ${device.ieeeAddr} failed")
+            }
+        }
+
+        // Reponse to time reads
+        if (frame.isGlobal() && frame.isCluster('genTime') && frame.isCommand('read')) {
+            const time = Math.round(((new Date()).getTime() - OneJanuary2000) / 1000)
+            try {
+                await endpoint.readResponse(frame.Cluster.ID, frame.Header.transactionSequenceNumber, {time})
+            } catch (error) {
+                debug.error("genTime response to ${device.ieeeAddr} failed")
+            }
+        }
+        '''
+        pass
 
     def handle_tx_confirm(self, req_id, status):
         try:
