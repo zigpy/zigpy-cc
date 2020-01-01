@@ -1,17 +1,11 @@
 import asyncio
 import logging
-from typing import List, Any
-
-from zigpy.endpoint import Endpoint
-
-from zigpy.zcl import Cluster
+from typing import List
 
 from zigpy_cc.exception import CommandError
-from zigpy_cc.zcl import ZclDataPayload
-from zigpy_cc.zcl.zcl_frame import ZclFrame
 from . import uart
 from .definition import Definition
-from .types import Subsystem, CommandType, Timeouts
+from .types import Repr, Subsystem, CommandType, Timeouts
 from .zpi_object import ZpiObject
 
 LOGGER = logging.getLogger(__name__)
@@ -20,7 +14,7 @@ COMMAND_TIMEOUT = 3
 CC_BAUDRATE = 115200
 
 
-class Matcher:
+class Matcher(Repr):
     def __init__(self, type, subsystem, command, payload):
         self.type = type
         self.subsystem = subsystem
@@ -28,7 +22,7 @@ class Matcher:
         self.payload = payload
 
 
-class Waiter:
+class Waiter(Repr):
     def __init__(self, type: int, subsystem: int, command: str, payload, timeout: int, sequence):
         self.matcher = Matcher(type, subsystem, command, payload)
         self.future = asyncio.get_event_loop().create_future()
@@ -46,7 +40,11 @@ class Waiter:
         if matcher.type != obj.type or matcher.subsystem != obj.subsystem or matcher.command != obj.command:
             return False
 
-        # TODO check payload
+        if matcher.payload:
+            for f, v in matcher.payload.items():
+                if v != obj.payload[f]:
+                    LOGGER.warn("payload missmatch\n-%s\n+%s", matcher.payload, obj.payload)
+                    return False
 
         return True
 
@@ -77,11 +75,13 @@ class API:
     async def _command(self, subsystem, command, payload) -> ZpiObject:
         return await self.request(subsystem, command, payload)
 
-    async def request(self, subsystem, command, payload, expectedStatus=[0]):
+    async def request(self, subsystem, command, payload, expectedStatus=None):
         obj = self._create_obj(subsystem, command, payload)
         return await self.request_raw(obj, expectedStatus)
 
-    async def request_raw(self, obj, expectedStatus=[0]):
+    async def request_raw(self, obj, expectedStatus=None):
+        if expectedStatus is None:
+            expectedStatus = [0]
         """
         TODO add queue
         """
@@ -131,21 +131,16 @@ class API:
             LOGGER.debug("waiting for %d %s", sequence, obj.command)
 
     def get_response_waiter(self, obj: ZpiObject, sequence=None):
-        if obj.type == CommandType.SREQ and obj.command == 'nodeDescReq':
-            payload = {'srcaddr': obj.payload['dstaddr']}
-            return self.wait_for(CommandType.AREQ, Subsystem.ZDO, 'nodeDescRsp', payload, sequence=sequence)
-
-        if obj.type == CommandType.SREQ and obj.command == 'activeEpReq':
-            payload = {'srcaddr': obj.payload['dstaddr']}
-            return self.wait_for(CommandType.AREQ, Subsystem.ZDO, 'activeEpRsp', payload, sequence=sequence)
-
-        if obj.type == CommandType.SREQ and obj.command == 'simpleDescReq':
-            payload = {'srcaddr': obj.payload['dstaddr']}
-            return self.wait_for(CommandType.AREQ, Subsystem.ZDO, 'simpleDescRsp', payload, sequence=sequence)
+        if obj.type == CommandType.SREQ and obj.command.endswith('Req'):
+            rsp = obj.command.replace('Req', 'Rsp')
+            for cmd in Definition[obj.subsystem]:
+                if rsp == cmd['name']:
+                    payload = {'srcaddr': obj.payload['dstaddr']}
+                    return self.wait_for(CommandType.AREQ, Subsystem.ZDO, rsp, payload, sequence=sequence)
 
         return None
 
-    def wait_for(self, type, subsystem, command, payload={}, timeout=Timeouts.default, sequence=None):
+    def wait_for(self, type, subsystem, command, payload=None, timeout=Timeouts.default, sequence=None):
         waiter = Waiter(type, subsystem, command, payload, timeout, sequence)
         self._waiters.append(waiter)
 

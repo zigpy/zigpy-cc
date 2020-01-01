@@ -1,12 +1,9 @@
 import asyncio
-import logging
 from unittest import mock
 
 import pytest
 
-import zigpy.device
 import zigpy.zdo.types as zdo_t
-import zigpy_cc.exception
 import zigpy_cc.zigbee.application as application
 from zigpy.types import EUI64
 from zigpy_cc import types as t
@@ -150,8 +147,7 @@ ERROR:zigpy.device:Failed ZDO request during device initialization: 'API' object
 '''
 
 
-@pytest.mark.asyncio
-async def test_request(app):
+async def device_annce(app: application.ControllerApplication):
     # payload = {'nwkaddr': 27441, 'extaddr': '0x07a3c302008d1500', 'parentaddr': 0}
     # obj = ZpiObject(2, 5, 'tcDeviceInd', 202, payload, [])
 
@@ -161,13 +157,17 @@ async def test_request(app):
 
     app.handle_znp(obj)
 
+
+@pytest.mark.asyncio
+async def test_request(app: application.ControllerApplication):
+    await device_annce(app)
     device = app.get_device(nwk=53322)
 
     fut = asyncio.Future()
     fut.set_result(None)
     app._api.request_raw = mock.MagicMock(return_value=fut)
 
-    await app.request(
+    res = await app.request(
         device,
         0,
         zdo_t.ZDOCmd.Node_Desc_req,
@@ -177,6 +177,9 @@ async def test_request(app):
         b'\x01\xa2\x2e'
     )
 
+    assert len(app._api._waiters) == 1
+    assert res == (0, "message send success")
+
 
 '''
 zigpy_cc.api DEBUG <-- SREQ ZDO nodeDescReq {'dstaddr': 53322, 'nwkaddrofinterest': 0}
@@ -185,35 +188,42 @@ zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128, 'n
 '''
 
 
-@pytest.mark.skip
 @pytest.mark.asyncio
-async def test_node_desc_rsp(app, ieee, nwk):
-    dev = zigpy.device.Device(app, ieee, nwk)
-
-    desc = zdo_t.NodeDescriptor()
+async def test_get_node_descriptor(app: application.ControllerApplication):
+    await device_annce(app)
+    device = app.get_device(nwk=53322)
 
     fut = asyncio.Future()
     fut.set_result([0, 'message send success'])
     app._api.request_raw = mock.MagicMock(return_value=fut)
 
+    payload = {'srcaddr': 53322, 'status': 0, 'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0,
+               'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 1234, 'maxbuffersize': 0,
+               'maxintransfersize': 0, 'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
+    obj = ZpiObject.from_command(2, 5, 'nodeDescRsp', payload)
+    frame = obj.to_unpi_frame()
+
     async def nested():
-        await asyncio.sleep(1)
-        print('len', len(app._pending))
-        pass
+        await asyncio.sleep(0)
+        app._api.data_received(frame)
 
-    await asyncio.wait(
-        [
-            dev.get_node_descriptor(),
-            nested(),
-        ],
-        timeout=2,
-    )
+    await asyncio.wait([
+        device.get_node_descriptor(),
+        nested(),
+    ], timeout=0.2)
 
+    assert isinstance(device.node_desc, zdo_t.NodeDescriptor)
+    assert device.node_desc.manufacturer_code == 1234
 
-    print(dev.node_desc)
+@pytest.mark.asyncio
+async def test_read_attributes(app: application.ControllerApplication):
+    await device_annce(app)
+    device = app.get_device(nwk=53322)
 
-    assert isinstance(dev.node_desc, zdo_t.NodeDescriptor)
-    assert False
+    # res = await app.request(device, 260, 0, 1, 1, 1, b'\x00\x0b\x00\x04\x00\x05\x00')
+    #
+    # assert res == []
+
 
 # def _test_rx(app, addr_ieee, addr_nwk, device, data):
 #     app.get_device = mock.MagicMock(return_value=device)

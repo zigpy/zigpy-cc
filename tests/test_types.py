@@ -65,7 +65,24 @@ zigpy_cc.api DEBUG --> SRSP ZDO nodeDescReq {'status': 0}
 zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128, 'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0, 'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 0, 'maxbuffersize': 0, 'maxintransfersize': 0, 'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
 '''
 def test_from_cluster_id():
-
-    obj = ZpiObject.from_cluster(NWK(53322), ZDOCmd.Node_Desc_req, b'\x03\x4a\xd0')
+    profile = 0
+    obj = ZpiObject.from_cluster(NWK(53322), profile, ZDOCmd.Node_Desc_req, 0, 0, 0, b'\x03\x4a\xd0')
 
     assert str(obj) == "SREQ ZDO nodeDescReq {'dstaddr': 53322, 'nwkaddrofinterest': 53322}"
+
+
+'''
+profile 260
+cluster 0
+src_ep 1
+dst_ep 1
+sequence 1
+data b'\x00\x0b\x00\x04\x00\x05\x00'
+'''
+def test_from_cluster_id_ZCL():
+    profile = 260
+    obj = ZpiObject.from_cluster(NWK(53322), profile, 0, 1, 1, 1, b'\x00\x0b\x00\x04\x00\x05\x00')
+
+    assert "SREQ AF dataRequest {'dstaddr': 53322, 'destendpoint': 1, 'srcendpoint': 1, " \
+           "'clusterid': 1, 'transid': 1, 'options': 0, 'radius': 0, 'len': 7, " \
+           "'data': b'\\x00\\x0b\\x00\\x04\\x00\\x05\\x00'}" == str(obj)

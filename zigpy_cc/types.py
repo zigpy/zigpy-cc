@@ -1,7 +1,10 @@
 import enum
 
+from zigpy.profiles import zha
+
 import zigpy.zdo.types as t
 
+# TODO remove unused
 
 def deserialize(data, schema):
     result = []
@@ -298,6 +301,16 @@ class Key(FixedList):
     _length = 16
 
 
+class Repr:
+    def __repr__(self) -> str:
+        r = '<%s ' % (self.__class__.__name__,)
+        r += ' '.join(
+            ['%s=%s' % (f, getattr(self, f, None)) for f in vars(self)]
+        )
+        r += '>'
+        return r
+
+
 class Timeouts:
     SREQ = 6000
     reset = 30000
@@ -332,9 +345,12 @@ class Subsystem(uint8_t, enum.Enum):
     GREENPOWER = 21
 
     @staticmethod
-    def from_cluster(cluster):
+    def from_cluster(profile, cluster):
         if cluster.__class__ == t.ZDOCmd:
             return Subsystem.ZDO
+
+        if profile == zha.PROFILE_ID:
+            return Subsystem.AF
 
         raise Exception("Not implemented", cluster)
 

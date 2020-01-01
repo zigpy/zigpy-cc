@@ -1,3 +1,5 @@
+from zigpy.profiles import zha
+
 from zigpy_cc import uart
 from zigpy_cc.buffalo import Buffalo, BuffaloOptions
 from zigpy_cc.definition import Definition
@@ -13,14 +15,14 @@ BufferAndListTypes = [
 
 
 class ZpiObject:
-    def __init__(self, type, subsystem, command, commandId, payload, parameters):
+    def __init__(self, type, subsystem, command: str, commandId, payload, parameters):
         self.type = type
-        self.sequence = None
         self.subsystem = subsystem
         self.command = command
         self.command_id = commandId
         self.payload = payload
         self.parameters = parameters
+        self.sequence = None
 
     def is_reset_command(self):
         return (self.command == "resetReq" and self.subsystem == Subsystem.SYS) or \
@@ -34,6 +36,19 @@ class ZpiObject:
             data.write_parameter(p['parameterType'], value, {})
 
         return uart.UnpiFrame(self.type, self.subsystem, self.command_id, data.buffer)
+
+    @classmethod
+    def from_command(cls, type, subsystem, command, payload):
+        cmd = next(
+            c for c in Definition[subsystem] if c["name"] == command
+        )
+        parameters = (
+            cmd["response"] if type == CommandType.SRSP else cmd["request"]
+        )
+
+        return cls(
+            type, subsystem, cmd["name"], cmd["ID"], payload, parameters
+        )
 
     @classmethod
     def from_unpi_frame(cls, frame):
@@ -50,17 +65,33 @@ class ZpiObject:
         )
 
     @classmethod
-    def from_cluster(cls, nwk, cluster, data):
-        subsystem = Subsystem.from_cluster(cluster)
+    def from_cluster(cls, nwk, profile, cluster, src_ep, dst_ep, sequence, data):
+        subsystem = Subsystem.from_cluster(profile, cluster)
+        if profile == zha.PROFILE_ID:
+            cluster = 1
+
         cmd = next(
-            c for c in Definition[subsystem] if c["ID"] == cluster.value
+            c for c in Definition[subsystem] if c["ID"] == cluster
         )
         name = cmd['name']
         parameters = (
             cmd["response"] if cmd["type"] == CommandType.SRSP else cmd["request"]
         )
 
-        payload = cls.read_parameters(nwk.to_bytes(2, 'little') + data[1:], parameters)
+        if name == 'dataRequest':
+            payload = {
+                'dstaddr': int(nwk),
+                'destendpoint': dst_ep,
+                'srcendpoint': src_ep,
+                'clusterid': cluster,
+                'transid': sequence,
+                'options': 0,
+                'radius': 0,
+                'len': len(data),
+                'data': data,
+            }
+        else:
+            payload = cls.read_parameters(nwk.to_bytes(2, 'little') + data[1:], parameters)
 
         return cls(
             cmd["type"], subsystem, name, cmd["ID"], payload, parameters
@@ -85,7 +116,6 @@ class ZpiObject:
                     # For LIST_ASSOC_DEV, we also need to grab the startindex which is right before the length
                     if isinstance(startIndex, int):
                         options.startIndex = startIndex
-
 
             res[p['name']] = buffalo.read_parameter(p["parameterType"], options)
             startIndex = length

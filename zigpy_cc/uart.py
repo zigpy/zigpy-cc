@@ -4,7 +4,7 @@ import logging
 import serial
 import serial_asyncio
 
-from zigpy_cc.buffalo import Buffalo
+from zigpy_cc.types import Repr
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class Parser:
     def __init__(self) -> None:
         self.buffer = b''
 
-    def write(self, b):
+    def write(self, b: int):
         self.buffer += bytes([b])
         if SOF == self.buffer[0]:
             if len(self.buffer) > MinMessageLength:
@@ -45,10 +45,8 @@ class Parser:
         return None
 
 
-
-
-class UnpiFrame:
-    def __init__(self, type, subsystem, command_id, data, length=None, fcs=None):
+class UnpiFrame(Repr):
+    def __init__(self, type: int, subsystem: int, command_id: int, data: bytes, length=None, fcs=None):
         self.type = type
         self.subsystem = subsystem
         self.command_id = command_id
@@ -82,8 +80,6 @@ class UnpiFrame:
 
         return checksum
 
-    # def to_zdo(self):
-
     def to_buffer(self):
         length = len(self.data)
         res = b""
@@ -97,11 +93,6 @@ class UnpiFrame:
         res += bytes([checksum])
 
         return res
-
-    def __str__(self) -> str:
-        return "{} - {} - {} - {} - {} - {}".format(
-            self.type, self.subsystem, self.command_id, self.length, self.data, self.fcs
-        )
 
 
 class Gateway(asyncio.Protocol):

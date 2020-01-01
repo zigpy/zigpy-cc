@@ -1,8 +1,7 @@
 import asyncio
 import binascii
 import logging
-
-from zigpy.zcl.foundation import Command
+import traceback
 
 import zigpy.application
 import zigpy.device
@@ -12,7 +11,6 @@ import zigpy.types
 import zigpy.util
 import zigpy_cc.exception
 from zigpy.profiles import zha
-from zigpy.zcl import Cluster
 from zigpy.zdo.types import ZDOCmd
 from zigpy_cc import types as t
 from zigpy_cc.api import API
@@ -26,6 +24,18 @@ LOGGER = logging.getLogger(__name__)
 CHANGE_NETWORK_WAIT = 1
 SEND_CONFIRM_TIMEOUT = 60
 PROTO_VER_WATCHDOG = 0x0108
+
+REQUESTS = {
+    'nwkAddrReq': (ZDOCmd.NWK_addr_req, 0),
+    'ieeeAddrReq': (ZDOCmd.IEEE_addr_req, 0),
+    'matchDescReq': (ZDOCmd.Match_Desc_req, 2),
+    'endDeviceAnnceInd': (ZDOCmd.Device_annce, 2),
+    'mgmtPermitJoinReq': (ZDOCmd.Mgmt_Permit_Joining_req, 3),
+
+    'nodeDescRsp': (ZDOCmd.Node_Desc_rsp, 2),
+    'activeEpRsp': (ZDOCmd.Active_EP_rsp, 2),
+    'simpleDescRsp': (ZDOCmd.Simple_Desc_rsp, 2),
+}
 
 
 class ControllerApplication(zigpy.application.ControllerApplication):
@@ -176,7 +186,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
                 sequence 1
                 data b'\x00\x0b\x00\x04\x00\x05\x00'
                 """
-                obj = ZpiObject.from_cluster(device.nwk, cluster, data)
+                obj = ZpiObject.from_cluster(device.nwk, profile, cluster, src_ep, dst_ep, sequence, data)
             except Exception as e:
                 LOGGER.exception('from_cluster failed %s', e)
                 print('profile', profile)
@@ -185,6 +195,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
                 print('dst_ep', dst_ep)
                 print('sequence', dst_ep)
                 print('data', data)
+                traceback.print_stack()
                 raise e
 
             try:
@@ -277,36 +288,24 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             tsn = bytes([obj.sequence])
 
         nwk = obj.payload['srcaddr'] if 'srcaddr' in obj.payload else None
+        ieee = obj.payload['ieeeaddr'] if 'ieeeaddr' in obj.payload else None
         profile_id = zha.PROFILE_ID
         src_ep = 0
         dst_ep = 0
         lqi = 0
         rssi = 0
-        data = tsn + frame.data[2:]
 
         if obj.subsystem == t.Subsystem.ZDO and obj.command == 'endDeviceAnnceInd':
             nwk = obj.payload['nwkaddr']
-            cluster_id = ZDOCmd.Device_annce
-            ieee = obj.payload['ieeeaddr']
             LOGGER.info("New device joined: %s, %s", nwk, ieee)
             self.handle_join(nwk, ieee, 0)
 
-        elif obj.subsystem == t.Subsystem.ZDO and obj.command == 'nodeDescRsp':
-            '''
-            zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp
-            {'srcaddr': 53322, 'status': 128, 'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0,
-            'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 0, 'maxbuffersize': 0,
-            'maxintransfersize': 0, 'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
-            '''
-            cluster_id = ZDOCmd.Node_Desc_rsp
-
-        elif obj.subsystem == t.Subsystem.ZDO and obj.command == 'activeEpRsp':
-            cluster_id = ZDOCmd.Active_EP_rsp
-
-        elif obj.subsystem == t.Subsystem.ZDO and obj.command == 'simpleDescRsp':
-            cluster_id = ZDOCmd.Simple_Desc_rsp
+        if obj.subsystem == t.Subsystem.ZDO and obj.command in REQUESTS:
+            cluster_id, prefix_length = REQUESTS[obj.command]
+            data = tsn + frame.data[prefix_length:]
 
         elif obj.subsystem == t.Subsystem.AF and (obj.command == 'incomingMsg' or obj.command == 'incomingMsgExt'):
+            # ZCL commands
             cluster_id = obj.payload['clusterid']
             src_ep = obj.payload['srcendpoint']
             dst_ep = obj.payload['dstendpoint']
@@ -322,9 +321,12 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             return
 
         try:
-            device = self.get_device(nwk=nwk)
+            if ieee:
+                device = self.get_device(ieee=ieee)
+            else:
+                device = self.get_device(nwk=nwk)
         except KeyError:
-            LOGGER.debug("Received frame from unknown device: %s", nwk)
+            LOGGER.debug("Received frame from unknown device: %s", ieee if ieee else nwk)
             return
 
         device.radio_details(lqi, rssi)
@@ -352,11 +354,10 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         # device.radio_details(lqi, rssi)
         # self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
 
-
     def handle_zcl(self, dataPayload: ZclDataPayload):
         # LOGGER.debug("Received ZCL data %s", dataPayload)
 
-        #if (dataPayload.frame && dataPayload.frame.Cluster.name === 'touchlink') {
+        # if (dataPayload.frame && dataPayload.frame.Cluster.name === 'touchlink') {
         #    // This is handled by touchlink
         #     return
         # }
@@ -375,7 +376,8 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         try:
             endpoint = device.endpoints[dataPayload.endpoint]
         except KeyError:
-            LOGGER.debug("ZCL data is from unknown endpoint %d from device %s, creating it...", dataPayload.endpoint, nwk)
+            LOGGER.debug("ZCL data is from unknown endpoint %d from device %s, creating it...", dataPayload.endpoint,
+                         nwk)
             endpoint = device.add_endpoint(dataPayload.endpoint)
 
         # cluster = Cluster.from_id(endpoint, dataPayload.clusterid)
