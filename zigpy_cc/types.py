@@ -5,6 +5,8 @@ from zigpy.profiles import zha
 import zigpy.zdo.types as t
 
 # TODO remove unused
+from zigpy_cc.exception import TODO
+
 
 def deserialize(data, schema):
     result = []
@@ -352,7 +354,7 @@ class Subsystem(uint8_t, enum.Enum):
         if profile == zha.PROFILE_ID:
             return Subsystem.AF
 
-        raise Exception("Not implemented", cluster)
+        raise TODO('from_cluster %s', cluster)
 
 
 class ParameterType(uint8_t, enum.Enum):

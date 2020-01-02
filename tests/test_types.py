@@ -179,12 +179,7 @@ def test_from_unpi_frame3():
         "len":55,
         "data":bytes([24,2,1,5,0,0,66,23,84,82,65,68,70,82,73,32,119,105,114,101,108,101,115,115,32,100,105,109,109,101,114,4,0,0,66,14,73,75,69,65,32,111,102,32,83,119,101,100,101,110,7,0,0,48,3])
     }
-    obj = ZpiObject.from_command(
-        t.CommandType.AREQ,
-        t.Subsystem.AF,
-        'incomingMsg',
-        payload
-    )
+    obj = ZpiObject.from_command(t.Subsystem.AF, 'incomingMsg', payload)
 
     assert "AREQ AF incomingMsg tsn: None {'groupid': 0, 'clusterid': 0, 'srcaddr': 44052, " \
            "'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 78, " \

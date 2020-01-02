@@ -1,4 +1,5 @@
+from zigpy_cc.exception import TODO
 
 
 async def Restore(znp, backupPath, options):
-    raise Exception("not implemented")
+    raise TODO("Restore")

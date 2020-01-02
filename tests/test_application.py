@@ -200,7 +200,7 @@ async def test_get_node_descriptor(app: application.ControllerApplication):
     payload = {'srcaddr': 53322, 'status': 0, 'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0,
                'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 1234, 'maxbuffersize': 0,
                'maxintransfersize': 0, 'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
-    obj = ZpiObject.from_command(2, 5, 'nodeDescRsp', payload)
+    obj = ZpiObject.from_command(5, 'nodeDescRsp', payload)
     frame = obj.to_unpi_frame()
 
     async def nested():
@@ -213,7 +213,7 @@ async def test_get_node_descriptor(app: application.ControllerApplication):
     ], timeout=0.2)
 
     assert isinstance(device.node_desc, zdo_t.NodeDescriptor)
-    assert device.node_desc.manufacturer_code == 1234
+    assert 1234 == device.node_desc.manufacturer_code
 
 @pytest.mark.asyncio
 async def test_read_attributes(app: application.ControllerApplication):

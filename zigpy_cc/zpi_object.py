@@ -1,5 +1,3 @@
-from zigpy.zcl.foundation import ZCLHeader
-
 from zigpy.profiles import zha
 
 from zigpy_cc import uart
@@ -40,16 +38,16 @@ class ZpiObject:
         return uart.UnpiFrame(self.type, self.subsystem, self.command_id, data.buffer)
 
     @classmethod
-    def from_command(cls, type, subsystem, command, payload):
+    def from_command(cls, subsystem, command, payload):
         cmd = next(
             c for c in Definition[subsystem] if c["name"] == command
         )
         parameters = (
-            cmd["response"] if type == CommandType.SRSP else cmd["request"]
+            cmd["response"] if cmd["type"] == CommandType.SRSP else cmd["request"]
         )
 
         return cls(
-            type, subsystem, cmd["name"], cmd["ID"], payload, parameters
+            cmd["type"], subsystem, cmd["name"], cmd["ID"], payload, parameters
         )
 
     @classmethod
@@ -108,24 +106,24 @@ class ZpiObject:
         startIndex = None
         for p in parameters:
             options = BuffaloOptions()
-            name_ = p["name"]
-            if name_.endswith("addr") or name_.endswith("address") or name_.endswith('addrofinterest'):
+            name = p["name"]
+            if name.endswith("addr") or name.endswith("address") or name.endswith('addrofinterest'):
                 options.is_address = True
-            type_ = p["parameterType"]
-            if type_ in BufferAndListTypes:
+            type = p["parameterType"]
+            if type in BufferAndListTypes:
                 # When reading a buffer, assume that the previous parsed parameter contains
                 # the length of the buffer
                 if isinstance(length, int):
                     options.length = length
 
-                if type_ == ParameterType.LIST_ASSOC_DEV:
+                if type == ParameterType.LIST_ASSOC_DEV:
                     # For LIST_ASSOC_DEV, we also need to grab the startindex which is right before the length
                     if isinstance(startIndex, int):
                         options.startIndex = startIndex
 
-            res[name_] = buffalo.read_parameter(type_, options)
+            res[name] = buffalo.read_parameter(type, options)
             startIndex = length
-            length = res[name_]
+            length = res[name]
 
         return res
 
