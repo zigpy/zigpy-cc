@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 
 import coloredlogs as coloredlogs
 from serial import SerialException
@@ -10,10 +11,11 @@ from zigpy_cc.zigbee import application
 fmt = '%(name)s %(levelname)s %(message)s'
 coloredlogs.install(level='DEBUG', fmt=fmt)
 
+LOGGER = logging.getLogger(__name__)
 
 # logging.basicConfig(level=logging.DEBUG)
-logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
-# logging.getLogger('zigpy_cc.api').setLevel(logging.INFO)
+#logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
+#logging.getLogger('zigpy_cc.api').setLevel(logging.INFO)
 
 
 async def main():
@@ -29,7 +31,15 @@ async def main():
             print(e)
             await asyncio.sleep(2)
 
-    app = application.ControllerApplication(api, database_file='store.db')
+    db = 'store.db'
+    try:
+        app = application.ControllerApplication(api, database_file=db)
+    except KeyError:
+        LOGGER.error('DB error, removing DB...')
+        await asyncio.sleep(1)
+        os.remove(db)
+        app = application.ControllerApplication(api, database_file=db)
+
     await app.startup(auto_form=False)
     await app.form_network()
 

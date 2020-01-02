@@ -4,8 +4,8 @@ export PYTHONPATH=`pwd`
 
 while true; do
 
-    echo -ne "\033c"
-    py.test --color yes -x -v $@
+    #echo -ne "\033c"
+    py.test --color yes -x -vv $@
     #python test.py
     #python get_definitions.py
     echo "exit code: $?"

@@ -1,3 +1,5 @@
+from zigpy.zcl.foundation import ZCLHeader
+
 from zigpy.profiles import zha
 
 from zigpy_cc import uart
@@ -15,14 +17,14 @@ BufferAndListTypes = [
 
 
 class ZpiObject:
-    def __init__(self, type, subsystem, command: str, commandId, payload, parameters):
+    def __init__(self, type, subsystem, command: str, commandId, payload, parameters, sequence=None):
         self.type = type
         self.subsystem = subsystem
         self.command = command
         self.command_id = commandId
         self.payload = payload
         self.parameters = parameters
-        self.sequence = None
+        self.sequence = sequence
 
     def is_reset_command(self):
         return (self.command == "resetReq" and self.subsystem == Subsystem.SYS) or \
@@ -65,7 +67,7 @@ class ZpiObject:
         )
 
     @classmethod
-    def from_cluster(cls, nwk, profile, cluster, src_ep, dst_ep, sequence, data):
+    def from_cluster(cls, nwk, profile, cluster, src_ep, dst_ep, sequence, data, req_id):
         subsystem = Subsystem.from_cluster(profile, cluster)
         if profile == zha.PROFILE_ID:
             cluster = 1
@@ -83,10 +85,10 @@ class ZpiObject:
                 'dstaddr': int(nwk),
                 'destendpoint': dst_ep,
                 'srcendpoint': src_ep,
-                'clusterid': cluster,
-                'transid': sequence,
+                'clusterid': 0,
+                'transid': req_id,
                 'options': 0,
-                'radius': 0,
+                'radius': 30,
                 'len': len(data),
                 'data': data,
             }
@@ -94,7 +96,7 @@ class ZpiObject:
             payload = cls.read_parameters(nwk.to_bytes(2, 'little') + data[1:], parameters)
 
         return cls(
-            cmd["type"], subsystem, name, cmd["ID"], payload, parameters
+            cmd["type"], subsystem, name, cmd["ID"], payload, parameters, sequence
         )
 
     @classmethod
@@ -106,24 +108,28 @@ class ZpiObject:
         startIndex = None
         for p in parameters:
             options = BuffaloOptions()
-            if p["parameterType"] in BufferAndListTypes:
+            name_ = p["name"]
+            if name_.endswith("addr") or name_.endswith("address") or name_.endswith('addrofinterest'):
+                options.is_address = True
+            type_ = p["parameterType"]
+            if type_ in BufferAndListTypes:
                 # When reading a buffer, assume that the previous parsed parameter contains
                 # the length of the buffer
                 if isinstance(length, int):
                     options.length = length
 
-                if p["parameterType"] == ParameterType.LIST_ASSOC_DEV:
+                if type_ == ParameterType.LIST_ASSOC_DEV:
                     # For LIST_ASSOC_DEV, we also need to grab the startindex which is right before the length
                     if isinstance(startIndex, int):
                         options.startIndex = startIndex
 
-            res[p['name']] = buffalo.read_parameter(p["parameterType"], options)
+            res[name_] = buffalo.read_parameter(type_, options)
             startIndex = length
-            length = res[p['name']]
+            length = res[name_]
 
         return res
 
     def __str__(self) -> str:
         command_type = CommandType(self.type).name
         subsystem = Subsystem(self.subsystem).name
-        return "{} {} {} {}".format(command_type, subsystem, self.command, self.payload)
+        return "{} {} {} tsn: {} {}".format(command_type, subsystem, self.command, self.sequence, self.payload)

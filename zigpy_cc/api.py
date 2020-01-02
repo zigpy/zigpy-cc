@@ -131,6 +131,9 @@ class API:
             LOGGER.debug("waiting for %d %s", sequence, obj.command)
 
     def get_response_waiter(self, obj: ZpiObject, sequence=None):
+        if obj.type == CommandType.SREQ and obj.command == 'dataRequest':
+            return None
+
         if obj.type == CommandType.SREQ and obj.command.endswith('Req'):
             rsp = obj.command.replace('Req', 'Rsp')
             for cmd in Definition[obj.subsystem]:
@@ -138,6 +141,7 @@ class API:
                     payload = {'srcaddr': obj.payload['dstaddr']}
                     return self.wait_for(CommandType.AREQ, Subsystem.ZDO, rsp, payload, sequence=sequence)
 
+        LOGGER.warn("no response cmd configured for %s", obj.command)
         return None
 
     def wait_for(self, type, subsystem, command, payload=None, timeout=Timeouts.default, sequence=None):
@@ -156,6 +160,7 @@ class API:
         to_remove = []
         for waiter in self._waiters:
             if waiter.future.done():
+                LOGGER.warning('waiter already done %s', waiter)
                 to_remove.append(waiter)
             elif waiter.match(obj):
                 to_remove.append(waiter)
@@ -167,14 +172,8 @@ class API:
         for waiter in to_remove:
             self._waiters.remove(waiter)
 
-        if self._app != None:
-            if obj.command == 'incomingMsg' or obj.command == 'incomingMsgExt':
-                # data = ZclDataPayload(obj)
-                # self._app.handle_zcl(data)
-
-                self._app.handle_znp(obj)
-            else:
-                self._app.handle_znp(obj)
+        if self._app is not None:
+            self._app.handle_znp(obj)
 
         try:
             getattr(self, "_handle_%s" % (obj.command,))(obj)

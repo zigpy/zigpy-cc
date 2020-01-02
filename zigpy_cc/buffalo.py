@@ -7,6 +7,7 @@ class BuffaloOptions:
     def __init__(self) -> None:
         self.startIndex = None
         self.length = None
+        self.is_address = False
 
 
 class Buffalo:
@@ -25,8 +26,6 @@ class Buffalo:
         elif type == ParameterType.UINT32:
             self.write(value, 4)
         elif type == ParameterType.IEEEADDR:
-            # self.write(int(value[10:], 16), 4)
-            # self.write(int(value[2:10], 16), 4)
             for i in reversed(value):
                 self.write(i)
         elif type == ParameterType.BUFFER:
@@ -48,10 +47,11 @@ class Buffalo:
             res = self.read_int()
         elif type == ParameterType.UINT16:
             res = self.read_int(2)
+            if options.is_address:
+                res = zigpy.types.NWK(res)
         elif type == ParameterType.UINT32:
             res = self.read_int(4)
         elif type == ParameterType.IEEEADDR:
-            # res = "0x" + self.read(8).hex()
             res = zigpy.types.EUI64(self.read(8))
         elif type == ParameterType.BUFFER:
             length = options.length
@@ -65,6 +65,9 @@ class Buffalo:
             elif type == ParameterType.LIST_UINT16:
                 for i in range(0, options.length):
                     res.append(self.read_int(2))
+            elif type == ParameterType.LIST_UINT32:
+                for i in range(0, options.length):
+                    res.append(self.read_int(4))
             else:
                 raise Exception('read not implemented', ParameterType(type))
 

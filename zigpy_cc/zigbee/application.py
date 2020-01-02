@@ -74,9 +74,9 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         # add coordinator
         self.handle_join(self.nwk, self.ieee, 0)
 
-    async def force_remove(self, dev):
+    async def force_remove(self, dev: zigpy.device.Device):
         """Forcibly remove device from NCP."""
-        pass
+        LOGGER.warning('FORCE REMOVE %s', dev)
 
     async def form_network(self, channel=15, pan_id=None, extended_pan_id=None):
         LOGGER.info("Forming network")
@@ -186,7 +186,16 @@ class ControllerApplication(zigpy.application.ControllerApplication):
                 sequence 1
                 data b'\x00\x0b\x00\x04\x00\x05\x00'
                 """
-                obj = ZpiObject.from_cluster(device.nwk, profile, cluster, src_ep, dst_ep, sequence, data)
+                obj = ZpiObject.from_cluster(
+                    device.nwk,
+                    profile,
+                    cluster,
+                    src_ep,
+                    dst_ep,
+                    sequence,
+                    data,
+                    req_id
+                )
             except Exception as e:
                 LOGGER.exception('from_cluster failed %s', e)
                 print('profile', profile)
@@ -282,10 +291,6 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         #     self.handle_join(nwk, ieee, obj.payload['parentaddr'])
 
         frame = obj.to_unpi_frame()
-        tsn = b'\x00'
-        if obj.sequence is not None:
-            LOGGER.info("REPLY for %d %s", obj.sequence, obj.command)
-            tsn = bytes([obj.sequence])
 
         nwk = obj.payload['srcaddr'] if 'srcaddr' in obj.payload else None
         ieee = obj.payload['ieeeaddr'] if 'ieeeaddr' in obj.payload else None
@@ -297,11 +302,18 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         if obj.subsystem == t.Subsystem.ZDO and obj.command == 'endDeviceAnnceInd':
             nwk = obj.payload['nwkaddr']
-            LOGGER.info("New device joined: %s, %s", nwk, ieee)
+            LOGGER.info("New device joined: 0x%04x, %s", nwk, ieee)
             self.handle_join(nwk, ieee, 0)
+            # TODO TEST
+            obj.sequence = 0
 
         if obj.subsystem == t.Subsystem.ZDO and obj.command in REQUESTS:
+            if obj.sequence is None:
+                LOGGER.warning("missing tsn from %s, maybe not a reply", obj.command)
+                return
             cluster_id, prefix_length = REQUESTS[obj.command]
+            LOGGER.info("REPLY for %d %s", obj.sequence, obj.command)
+            tsn = bytes([obj.sequence])
             data = tsn + frame.data[prefix_length:]
 
         elif obj.subsystem == t.Subsystem.AF and (obj.command == 'incomingMsg' or obj.command == 'incomingMsgExt'):
@@ -331,7 +343,8 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         device.radio_details(lqi, rssi)
         if obj.subsystem == t.Subsystem.ZDO:
-            LOGGER.info('handle_message %s', obj.command)
+            pass
+        LOGGER.info('handle_message %s', obj.command)
         self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
 
         #

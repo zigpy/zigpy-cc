@@ -40,6 +40,7 @@ class Parser:
 
                     return frame
         else:
+            LOGGER.debug('drop char')
             self.buffer = b''
 
         return None
@@ -82,29 +83,16 @@ class UnpiFrame(Repr):
 
     def to_buffer(self):
         length = len(self.data)
-        res = b""
-
         cmd0 = ((self.type << 5) & 0xE0) | (self.subsystem & 0x1F)
 
-        res += bytes([SOF, length, cmd0, self.command_id])
+        res = bytes([SOF, length, cmd0, self.command_id])
         res += self.data
+        fcs = self.calculate_checksum(res[1:])
 
-        checksum = self.calculate_checksum(res[1:])
-        res += bytes([checksum])
-
-        return res
+        return res + bytes([fcs])
 
 
 class Gateway(asyncio.Protocol):
-    DataStart = 4
-
-    PositionDataLength = 1
-    PositionCmd0 = 2
-    PositionCmd1 = 3
-
-    MinMessageLength = 5
-    MaxDataSize = 250
-
     def __init__(self, api, connected_future=None):
         self._parser = Parser()
         self._connected_future = connected_future
