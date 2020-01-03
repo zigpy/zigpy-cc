@@ -7,7 +7,9 @@
 
 The goal of this project is to add native support for inexpensive CC2531 based USB sticks in Home Assistant via [Zigpy](https://github.com/zigpy/) to directly control Zigbee home automation devices such as Philips HUE, GE, Osram Lightify, Xiaomi/Aqara, IKEA Tradfri, Samsung SmartThings, and many more.
 
-This library is a port of the [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman/tree/v0.12.24) project (version 0.12.24) by Koen Kanters (a.k.a. Koenkk GitHub) which is turn was originally forked from the [zigbee-shepherd](https://github.com/zigbeer/zigbee-shepherd) project by zigbeer.
+zigpy-cc allows Zigpy to interact with TI's CC253X ZigBee Network Processor(ZNP) via TI Z-Stack Monitor and Test(MT) APIs using an UART interface.
+
+This library is a port of the [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman/tree/v0.12.24) project (version 0.12.24) by Koen Kanters (a.k.a. Koenkk GitHub) which is turn was originally forked from the [zigbee-shepherd](https://github.com/zigbeer/zigbee-shepherd) project by zigbeer. 
 
 # Hardware requirement
 For now best is to follow the instructions from the [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project on what hardware is needed and how to flash a CC2531 USB stick with their custom Z-Stack firmware 
