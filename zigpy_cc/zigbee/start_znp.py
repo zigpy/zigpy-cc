@@ -41,19 +41,22 @@ Endpoints = [
         appprofid=0x0104,
         appdeviceid=0x0400,
         appnumoutclusters=1,
-        appoutclusterlist=[IasZone.cluster_id]
+        appoutclusterlist=[IasZone.cluster_id],
     ),
     # TERNCY: https://github.com/Koenkk/zigbee-herdsman/issues/82
     Endpoint(endpoint=0x6E, appprofid=0x0104),
-    Endpoint(endpoint=12, appprofid=0xc05e),
+    Endpoint(endpoint=12, appprofid=0xC05E),
 ]
 
 
-async def validate_item(znp: API, item, message, subsystem=Subsystem.SYS, command='osalNvRead'):
+async def validate_item(
+    znp: API, item, message, subsystem=Subsystem.SYS, command="osalNvRead"
+):
     result = await znp.request(subsystem, command, item)
     if result.payload["value"] != item["value"]:
-        msg = "Item '{}' is invalid, got '{}', expected '{}'".format(message, result.payload["value"],
-                                                                     item["value"])
+        msg = "Item '{}' is invalid, got '{}', expected '{}'".format(
+            message, result.payload["value"], item["value"]
+        )
         LOGGER.debug(msg)
         raise AssertionError(msg)
     else:
@@ -62,29 +65,41 @@ async def validate_item(znp: API, item, message, subsystem=Subsystem.SYS, comman
 
 async def needsToBeInitialised(znp: API, version, options):
     try:
-        await validate_item(znp, Items.znpHasConfigured(version), 'hasConfigured')
-        await validate_item(znp, Items.channelList(options.channelList), 'channelList')
-        await validate_item(znp, Items.networkKeyDistribute(options.networkKeyDistribute), 'networkKeyDistribute')
+        await validate_item(znp, Items.znpHasConfigured(version), "hasConfigured")
+        await validate_item(znp, Items.channelList(options.channelList), "channelList")
+        await validate_item(
+            znp,
+            Items.networkKeyDistribute(options.networkKeyDistribute),
+            "networkKeyDistribute",
+        )
 
         if version == ZnpVersion.zStack3x0:
-            await validate_item(znp, Items.networkKey(options.networkKey), 'networkKey')
+            await validate_item(znp, Items.networkKey(options.networkKey), "networkKey")
         else:
             await validate_item(
-                znp, Items.networkKey(options.networkKey), 'networkKey', Subsystem.SAPI, 'readConfiguration'
+                znp,
+                Items.networkKey(options.networkKey),
+                "networkKey",
+                Subsystem.SAPI,
+                "readConfiguration",
             )
 
         try:
-            await validate_item(znp, Items.panID(options.panID), 'panID')
-            await validate_item(znp, Items.extendedPanID(options.extendedPanID), 'extendedPanID')
+            await validate_item(znp, Items.panID(options.panID), "panID")
+            await validate_item(
+                znp, Items.extendedPanID(options.extendedPanID), "extendedPanID"
+            )
         except Exception as error:
             if version == ZnpVersion.zStack30x or version == ZnpVersion.zStack3x0:
                 # Zigbee-herdsman =< 0.6.5 didn't set the panID and extendedPanID on zStack 3.
                 # As we are now checking it, it would trigger a reinitialise which will cause users
                 # to lose their network. Therefore we are ignoring this case.
                 # When the panID has never been set, it will be [0xFF, 0xFF].
-                current = await znp.request(Subsystem.SYS, 'osalNvRead', Items.panID(options.panID))
-                if current.payload.value == bytes([0xFF, 0XFF]):
-                    LOGGER.debug('Skip enforcing panID because a random panID is used')
+                current = await znp.request(
+                    Subsystem.SYS, "osalNvRead", Items.panID(options.panID)
+                )
+                if current.payload.value == bytes([0xFF, 0xFF]):
+                    LOGGER.debug("Skip enforcing panID because a random panID is used")
                 else:
                     raise error
             else:
@@ -92,29 +107,33 @@ async def needsToBeInitialised(znp: API, version, options):
 
         return False
     except Exception as e:
-        LOGGER.debug('Error while validating items: %s', e)
+        LOGGER.debug("Error while validating items: %s", e)
         return True
 
 
 async def boot(znp: API):
-    result = await znp.request(Subsystem.UTIL, 'getDeviceInfo', {})
+    result = await znp.request(Subsystem.UTIL, "getDeviceInfo", {})
 
-    if result.payload['devicestate'] != Common.devStates["ZB_COORD"]:
-        LOGGER.debug('Start ZNP as coordinator...')
-        started = znp.wait_for(CommandType.AREQ, Subsystem.ZDO, 'stateChangeInd', {"state": 9}, 60000)
-        await znp.request(Subsystem.ZDO, 'startupFromApp', {"startdelay": 100}, [0, 1])
+    if result.payload["devicestate"] != Common.devStates["ZB_COORD"]:
+        LOGGER.debug("Start ZNP as coordinator...")
+        started = znp.wait_for(
+            CommandType.AREQ, Subsystem.ZDO, "stateChangeInd", {"state": 9}, 60000
+        )
+        await znp.request(Subsystem.ZDO, "startupFromApp", {"startdelay": 100}, [0, 1])
         await started.wait()
-        LOGGER.debug('ZNP started as coordinator')
+        LOGGER.debug("ZNP started as coordinator")
     else:
-        LOGGER.debug('ZNP is already started as coordinator')
+        LOGGER.debug("ZNP is already started as coordinator")
 
 
 async def registerEndpoints(znp: API):
-    LOGGER.debug('Register endpoints...')
+    LOGGER.debug("Register endpoints...")
 
-    activeEpResponse = znp.wait_for(CommandType.AREQ, Subsystem.ZDO, 'activeEpRsp')
+    activeEpResponse = znp.wait_for(CommandType.AREQ, Subsystem.ZDO, "activeEpRsp")
     try:
-        await znp.request(Subsystem.ZDO, 'activeEpReq', {"dstaddr": 0, "nwkaddrofinterest": 0})
+        await znp.request(
+            Subsystem.ZDO, "activeEpReq", {"dstaddr": 0, "nwkaddrofinterest": 0}
+        )
     except Exception as e:
         LOGGER.debug(e)
     activeEp = await activeEpResponse.wait()
@@ -124,61 +143,90 @@ async def registerEndpoints(znp: API):
             LOGGER.debug("Endpoint '%s' already registered", endpoint.endpoint)
         else:
             LOGGER.debug("Registering endpoint '%s'", endpoint.endpoint)
-            await znp.request(Subsystem.AF, 'register', vars(endpoint))
+            await znp.request(Subsystem.AF, "register", vars(endpoint))
 
 
 async def initialise(znp: API, version, options: NetworkOptions):
-    await znp.request(Subsystem.SYS, 'resetReq', {"type": Constants.SYS.resetType.SOFT})
-    await znp.request(Subsystem.SYS, 'osalNvWrite', Items.startupOption(0x02))
-    await znp.request(Subsystem.SYS, 'resetReq', {"type": Constants.SYS.resetType.SOFT})
-    await znp.request(Subsystem.SYS, 'osalNvWrite', Items.logicalType(Constants.ZDO.deviceLogicalType.COORDINATOR))
-    await znp.request(Subsystem.SYS, 'osalNvWrite', Items.networkKeyDistribute(options.networkKeyDistribute))
-    await znp.request(Subsystem.SYS, 'osalNvWrite', Items.zdoDirectCb())
-    await znp.request(Subsystem.SYS, 'osalNvWrite', Items.channelList(options.channelList))
-    await znp.request(Subsystem.SYS, 'osalNvWrite', Items.panID(options.panID))
-    await znp.request(Subsystem.SYS, 'osalNvWrite', Items.extendedPanID(options.extendedPanID))
+    await znp.request(Subsystem.SYS, "resetReq", {"type": Constants.SYS.resetType.SOFT})
+    await znp.request(Subsystem.SYS, "osalNvWrite", Items.startupOption(0x02))
+    await znp.request(Subsystem.SYS, "resetReq", {"type": Constants.SYS.resetType.SOFT})
+    await znp.request(
+        Subsystem.SYS,
+        "osalNvWrite",
+        Items.logicalType(Constants.ZDO.deviceLogicalType.COORDINATOR),
+    )
+    await znp.request(
+        Subsystem.SYS,
+        "osalNvWrite",
+        Items.networkKeyDistribute(options.networkKeyDistribute),
+    )
+    await znp.request(Subsystem.SYS, "osalNvWrite", Items.zdoDirectCb())
+    await znp.request(
+        Subsystem.SYS, "osalNvWrite", Items.channelList(options.channelList)
+    )
+    await znp.request(Subsystem.SYS, "osalNvWrite", Items.panID(options.panID))
+    await znp.request(
+        Subsystem.SYS, "osalNvWrite", Items.extendedPanID(options.extendedPanID)
+    )
 
     if version == ZnpVersion.zStack30x or version == ZnpVersion.zStack3x0:
-        await znp.request(Subsystem.SYS, 'osalNvWrite', Items.networkKey(options.networkKey))
+        await znp.request(
+            Subsystem.SYS, "osalNvWrite", Items.networkKey(options.networkKey)
+        )
 
         # Default link key is already OK for Z-Stack 3 ('ZigBeeAlliance09')
-        channelMask = int.from_bytes(bytes(getChannelMask(options.channelList)), 'little')
-        await znp.request(Subsystem.APP_CNF, 'bdbSetChannel', {"isPrimary": 0x1, "channel": channelMask})
-        await znp.request(Subsystem.APP_CNF, 'bdbSetChannel', {"isPrimary": 0x0, "channel": 0x0})
+        channelMask = int.from_bytes(
+            bytes(getChannelMask(options.channelList)), "little"
+        )
+        await znp.request(
+            Subsystem.APP_CNF,
+            "bdbSetChannel",
+            {"isPrimary": 0x1, "channel": channelMask},
+        )
+        await znp.request(
+            Subsystem.APP_CNF, "bdbSetChannel", {"isPrimary": 0x0, "channel": 0x0}
+        )
 
-        started = znp.wait_for(CommandType.AREQ, Subsystem.ZDO, 'stateChangeInd', {"state": 9}, 60000)
-        await znp.request(Subsystem.APP_CNF, 'bdbStartCommissioning', {"mode": 0x04})
+        started = znp.wait_for(
+            CommandType.AREQ, Subsystem.ZDO, "stateChangeInd", {"state": 9}, 60000
+        )
+        await znp.request(Subsystem.APP_CNF, "bdbStartCommissioning", {"mode": 0x04})
         try:
             await started.wait()
         except:
             raise Exception(
-                'Coordinator failed to start, probably the panID is already in use, try a different panID or channel')
+                "Coordinator failed to start, probably the panID is already in use, try a different panID or channel"
+            )
 
-        await znp.request(Subsystem.APP_CNF, 'bdbStartCommissioning', {"mode": 0x02})
+        await znp.request(Subsystem.APP_CNF, "bdbStartCommissioning", {"mode": 0x02})
     else:
-        await znp.request(Subsystem.SAPI, 'writeConfiguration', Items.networkKey(options.networkKey))
-        await znp.request(Subsystem.SYS, 'osalNvWrite', Items.tcLinkKey())
+        await znp.request(
+            Subsystem.SAPI, "writeConfiguration", Items.networkKey(options.networkKey)
+        )
+        await znp.request(Subsystem.SYS, "osalNvWrite", Items.tcLinkKey())
 
     # expect status code 9 (= item created and initialized)
-    await znp.request(Subsystem.SYS, 'osalNvItemInit', Items.znpHasConfiguredInit(version), [0, 9])
-    await znp.request(Subsystem.SYS, 'osalNvWrite', Items.znpHasConfigured(version))
+    await znp.request(
+        Subsystem.SYS, "osalNvItemInit", Items.znpHasConfiguredInit(version), [0, 9]
+    )
+    await znp.request(Subsystem.SYS, "osalNvWrite", Items.znpHasConfigured(version))
 
 
-async def start_znp(znp: API, version, options: NetworkOptions, backupPath=''):
-    result = 'resumed'
+async def start_znp(znp: API, version, options: NetworkOptions, backupPath=""):
+    result = "resumed"
 
     try:
-        await validate_item(znp, Items.znpHasConfigured(version), 'hasConfigured')
+        await validate_item(znp, Items.znpHasConfigured(version), "hasConfigured")
         hasConfigured = True
     except AssertionError:
         hasConfigured = False
 
     if backupPath and os.path.exists(backupPath) and not hasConfigured:
-        LOGGER.debug('Restoring coordinator from backup')
+        LOGGER.debug("Restoring coordinator from backup")
         await Restore(znp, backupPath, options)
-        result = 'restored'
+        result = "restored"
     elif await needsToBeInitialised(znp, version, options):
-        LOGGER.debug('Initialize coordinator')
+        LOGGER.debug("Initialize coordinator")
         await initialise(znp, version, options)
 
         if version == ZnpVersion.zStack12:
@@ -186,15 +234,17 @@ async def start_znp(znp: API, version, options: NetworkOptions, backupPath=''):
             # network key, panID and channel don't change).
             # If the device has not been configured yet we assume that this is the case.
             # If we always return 'reset' the controller clears the database on a reflash of the stick.
-            result = 'reset' if hasConfigured else 'restored'
+            result = "reset" if hasConfigured else "restored"
         else:
-            result = 'reset'
+            result = "reset"
 
     await boot(znp)
     await registerEndpoints(znp)
 
-    if result == 'restored':
+    if result == "restored":
         # Write channel list again, otherwise it doesnt seem to stick.
-        await znp.request(Subsystem.SYS, 'osalNvWrite', Items.channelList(options.channelList))
+        await znp.request(
+            Subsystem.SYS, "osalNvWrite", Items.channelList(options.channelList)
+        )
 
     return result

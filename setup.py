@@ -7,7 +7,8 @@ import zigpy_cc
 setup(
     name="zigpy-cc",
     version=zigpy_cc.__version__,
-    description="A library which communicates with Texas Instruments CC2531 radios for zigpy",
+    description="A library which communicates with "
+    "Texas Instruments CC2531 radios for zigpy",
     url="http://github.com/sanyatuning/zigpy-cc",
     author="Balázs Sándor",
     author_email="sanyatuning@gmail.com",

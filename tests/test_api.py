@@ -147,16 +147,33 @@ def test_data_received(api, monkeypatch):
     # assert t.deserialize.call_count == 1
     # assert t.deserialize.call_args[0][0] == payload
     assert my_handler.call_count == 1
-    assert str(my_handler.call_args[0][0]) == str(ZpiObject(3, 1, "version", 2,
-                                                            {'transportrev': 2, 'product': 0, 'majorrel': 2,
-                                                             'minorrel': 6, 'maintrel': 3, 'revision': 20190608}, []))
+    assert str(my_handler.call_args[0][0]) == str(
+        ZpiObject(
+            3,
+            1,
+            "version",
+            2,
+            {
+                "transportrev": 2,
+                "product": 0,
+                "majorrel": 2,
+                "minorrel": 6,
+                "maintrel": 3,
+                "revision": 20190608,
+            },
+            [],
+        )
+    )
 
 
-'''
+"""
 zigpy_cc.api DEBUG <-- SREQ ZDO nodeDescReq {'dstaddr': 53322, 'nwkaddrofinterest': 0}
 zigpy_cc.api DEBUG --> SRSP ZDO nodeDescReq {'status': 0}
-zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128, 'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0, 'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 0, 'maxbuffersize': 0, 'maxintransfersize': 0, 'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
-'''
+zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128, 
+    'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0, 'apsflags_freqband': 0, 
+    'maccapflags': 0, 'manufacturercode': 0, 'maxbuffersize': 0, 'maxintransfersize': 0,
+    'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
+"""
 
 
 @pytest.mark.skip
@@ -171,19 +188,29 @@ async def test_node_desc(api: zigpy_cc.api.API, monkeypatch):
     # monkeypatch.setattr(asyncio, "Future", mock_fut)
     api._uart.send = mock.MagicMock()
 
-    fut = api.request(5, 'nodeDescReq', {'dstaddr': 53322, 'nwkaddrofinterest': 0})
+    fut = api.request(5, "nodeDescReq", {"dstaddr": 53322, "nwkaddrofinterest": 0})
 
-    api.data_received(UnpiFrame(3, 5, 2, b'\x00'))
+    api.data_received(UnpiFrame(3, 5, 2, b"\x00"))
     payload = {
-        'srcaddr': 53322, 'status': 128, 'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0,
-        'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 0, 'maxbuffersize': 0, 'maxintransfersize': 0,
-        'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0
+        "srcaddr": 53322,
+        "status": 128,
+        "nwkaddr": 0,
+        "logicaltype_cmplxdescavai_userdescavai": 0,
+        "apsflags_freqband": 0,
+        "maccapflags": 0,
+        "manufacturercode": 0,
+        "maxbuffersize": 0,
+        "maxintransfersize": 0,
+        "servermask": 0,
+        "maxouttransfersize": 0,
+        "descriptorcap": 0,
     }
-    api.data_received(api._create_obj(5, 'nodeDescRsp', payload).to_unpi_frame())
+    api.data_received(api._create_obj(5, "nodeDescRsp", payload).to_unpi_frame())
 
     res = await asyncio.wait_for(fut, 0.1)
 
     assert res == ""
+
 
 #
 # @pytest.mark.parametrize(

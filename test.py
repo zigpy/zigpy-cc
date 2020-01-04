@@ -14,8 +14,8 @@ coloredlogs.install(level='DEBUG', fmt=fmt)
 LOGGER = logging.getLogger(__name__)
 
 # logging.basicConfig(level=logging.DEBUG)
-#logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
-#logging.getLogger('zigpy_cc.api').setLevel(logging.INFO)
+# logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
+# logging.getLogger('zigpy_cc.api').setLevel(logging.INFO)
 
 
 async def main():

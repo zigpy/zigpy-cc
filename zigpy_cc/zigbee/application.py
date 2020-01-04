@@ -24,33 +24,34 @@ SEND_CONFIRM_TIMEOUT = 60
 PROTO_VER_WATCHDOG = 0x0108
 
 REQUESTS = {
-    'nwkAddrReq': (ZDOCmd.NWK_addr_req, 0),
-    'ieeeAddrReq': (ZDOCmd.IEEE_addr_req, 0),
-    'matchDescReq': (ZDOCmd.Match_Desc_req, 2),
-    'endDeviceAnnceInd': (ZDOCmd.Device_annce, 2),
-    'mgmtPermitJoinReq': (ZDOCmd.Mgmt_Permit_Joining_req, 3),
-
-    'nodeDescRsp': (ZDOCmd.Node_Desc_rsp, 2),
-    'activeEpRsp': (ZDOCmd.Active_EP_rsp, 2),
-    'simpleDescRsp': (ZDOCmd.Simple_Desc_rsp, 2),
-    'bindRsp': (ZDOCmd.Bind_rsp, 2),
+    "nwkAddrReq": (ZDOCmd.NWK_addr_req, 0),
+    "ieeeAddrReq": (ZDOCmd.IEEE_addr_req, 0),
+    "matchDescReq": (ZDOCmd.Match_Desc_req, 2),
+    "endDeviceAnnceInd": (ZDOCmd.Device_annce, 2),
+    "mgmtPermitJoinReq": (ZDOCmd.Mgmt_Permit_Joining_req, 3),
+    "nodeDescRsp": (ZDOCmd.Node_Desc_rsp, 2),
+    "activeEpRsp": (ZDOCmd.Active_EP_rsp, 2),
+    "simpleDescRsp": (ZDOCmd.Simple_Desc_rsp, 2),
+    "bindRsp": (ZDOCmd.Bind_rsp, 2),
+    "mgmtPermitJoinRsp": (ZDOCmd.Mgmt_Permit_Joining_rsp, 2),
 }
 
 IGNORED = (
-    'leaveInd',
-    'tcDeviceInd',
-    'stateChangeInd',
-    'dataConfirm',
+    "leaveInd",
+    "tcDeviceInd",
+    "stateChangeInd",
+    "dataConfirm",
+    "permitJoinInd",
 )
 
 
 class ControllerApplication(zigpy.application.ControllerApplication):
+    _api: API
+
     def __init__(self, api: API, database_file=None):
         super().__init__(database_file=database_file)
         self._api = api
         api.set_application(self)
-
-        self._pending = zigpy.util.Requests()
 
         self.discovering = False
         self.version = {}
@@ -62,44 +63,46 @@ class ControllerApplication(zigpy.application.ControllerApplication):
     async def startup(self, auto_form=False):
         """Perform a complete application startup"""
         self.version = await self._api.version()
-        ver = ZnpVersion(self.version['product']).name
+        ver = ZnpVersion(self.version["product"]).name
         LOGGER.debug("Detected znp version '%s' (%s)", ver, self.version)
 
         if auto_form:
             await self.form_network()
 
-        data = await self._api.request(Subsystem.UTIL, 'getDeviceInfo', {})
-        self._ieee = data.payload['ieeeaddr']
-        self._nwk = data.payload['shortaddr']
+        data = await self._api.request(Subsystem.UTIL, "getDeviceInfo", {})
+        self._ieee = data.payload["ieeeaddr"]
+        self._nwk = data.payload["shortaddr"]
 
         # add coordinator
         self.handle_join(self.nwk, self.ieee, 0)
 
     async def permit_with_key(self, node, code, time_s=60):
-        raise TODO('permit_with_key')
+        raise TODO("permit_with_key")
 
     async def force_remove(self, dev: zigpy.device.Device):
         """Forcibly remove device from NCP."""
-        LOGGER.warning('FORCE REMOVE %s', dev)
+        LOGGER.warning("FORCE REMOVE %s", dev)
 
     async def form_network(self, channel=15, pan_id=None, extended_pan_id=None):
         LOGGER.info("Forming network")
         options = NetworkOptions()
         backupPath = ""
-        status = await start_znp(self._api, self.version['product'], options, backupPath)
+        status = await start_znp(
+            self._api, self.version["product"], options, backupPath
+        )
         LOGGER.debug("ZNP started, status: %s", status)
 
     async def mrequest(
-            self,
-            group_id,
-            profile,
-            cluster,
-            src_ep,
-            sequence,
-            data,
-            *,
-            hops=0,
-            non_member_radius=3
+        self,
+        group_id,
+        profile,
+        cluster,
+        src_ep,
+        sequence,
+        data,
+        *,
+        hops=0,
+        non_member_radius=3
     ):
         """Submit and send data out as a multicast transmission.
 
@@ -117,124 +120,134 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         :returns: return a tuple of a status and an error_message. Original requestor
                   has more context to provide a more meaningful error message
         """
-        raise TODO('mrequest')
         req_id = self.get_sequence()
         LOGGER.debug(
-            "Sending Zigbee multicast with tsn %s under %s request id, data: %s",
-            sequence,
-            req_id,
-            binascii.hexlify(data),
+            "multicast %s",
+            (
+                group_id,
+                profile,
+                cluster,
+                src_ep,
+                sequence,
+                data,
+                hops,
+                non_member_radius,
+            ),
         )
-        dst_addr_ep = t.DeconzAddressEndpoint()
-        dst_addr_ep.address_mode = t.ADDRESS_MODE.GROUP
-        dst_addr_ep.address = group_id
+        try:
+            obj = ZpiObject.from_cluster(
+                group_id, profile, cluster, src_ep, src_ep, sequence, data, req_id
+            )
 
-        with self._pending.new(req_id) as req:
-            try:
-                await self._api.aps_data_request(
-                    req_id, dst_addr_ep, profile, cluster, min(1, src_ep), data
-                )
-            except CommandError as ex:
-                return ex.status, "Couldn't enqueue send data request: {}".format(ex)
+            await self._api.request_raw(obj)
 
-            r = await asyncio.wait_for(req.result, SEND_CONFIRM_TIMEOUT)
-            if r:
-                LOGGER.warning("Error while sending %s req id frame: 0x%02x", req_id, r)
-                return r, "message send failure"
+        except CommandError as ex:
+            return ex.status, "Couldn't enqueue send data multicast: {}".format(ex)
 
-        return Status.SUCCESS, "message send success"
+        return 0, "message send success"
 
     @zigpy.util.retryable_request
     async def request(
-            self,
-            device,
-            profile,
-            cluster,
-            src_ep,
-            dst_ep,
-            sequence,
-            data,
-            expect_reply=True,
-            use_ieee=False,
+        self,
+        device,
+        profile,
+        cluster,
+        src_ep,
+        dst_ep,
+        sequence,
+        data,
+        expect_reply=True,
+        use_ieee=False,
     ):
         req_id = self.get_sequence()
         LOGGER.debug(
-            "Sending Zigbee request with tsn %s under %s request id, data: %s",
-            sequence,
-            req_id,
-            data,
+            "request %s",
+            (
+                device.nwk,
+                profile,
+                cluster,
+                src_ep,
+                dst_ep,
+                sequence,
+                data,
+                expect_reply,
+                use_ieee,
+            ),
         )
 
-        with self._pending.new(req_id) as req:
-            try:
-                obj = ZpiObject.from_cluster(
-                    device.nwk,
-                    profile,
-                    cluster,
-                    src_ep,
-                    dst_ep,
-                    sequence,
-                    data,
-                    req_id
-                )
-                if expect_reply:
-                    self._api.create_response_waiter(obj, sequence)
+        try:
+            obj = ZpiObject.from_cluster(
+                device.nwk, profile, cluster, src_ep, dst_ep, sequence, data, req_id
+            )
+            if expect_reply:
+                self._api.create_response_waiter(obj, sequence)
 
-                await self._api.request_raw(obj)
+            await self._api.request_raw(obj)
 
-            except zigpy_cc.exception.CommandError as ex:
-                return ex.status, "Couldn't enqueue send data request: {}".format(ex)
+        except CommandError as ex:
+            return ex.status, "Couldn't enqueue send data request: {}".format(ex)
 
-            return 0, "message send success"
+        return 0, "message send success"
 
     async def broadcast(
-            self,
-            profile,
-            cluster,
-            src_ep,
-            dst_ep,
-            grpid,
-            radius,
-            sequence,
-            data,
-            broadcast_address=zigpy.types.BroadcastAddress.RX_ON_WHEN_IDLE,
+        self,
+        profile,
+        cluster,
+        src_ep,
+        dst_ep,
+        grpid,
+        radius,
+        sequence,
+        data,
+        broadcast_address=zigpy.types.BroadcastAddress.RX_ON_WHEN_IDLE,
     ):
-        raise TODO('broadcast')
         req_id = self.get_sequence()
         LOGGER.debug(
-            "Sending Zigbee broadcast with tsn %s under %s request id, data: %s",
-            sequence,
-            req_id,
-            binascii.hexlify(data),
+            "broadcast %s",
+            (
+                profile,
+                cluster,
+                src_ep,
+                dst_ep,
+                grpid,
+                radius,
+                sequence,
+                data,
+                broadcast_address,
+            ),
         )
-        dst_addr_ep = t.DeconzAddressEndpoint()
-        dst_addr_ep.address_mode = t.uint8_t(t.ADDRESS_MODE.GROUP.value)
-        dst_addr_ep.address = t.uint16_t(broadcast_address)
+        try:
+            obj = ZpiObject.from_cluster(
+                broadcast_address,
+                profile,
+                cluster,
+                src_ep,
+                dst_ep,
+                sequence,
+                data,
+                req_id,
+                radius=radius,
+            )
 
-        with self._pending.new(req_id) as req:
-            try:
-                await self._api.aps_data_request(
-                    req_id, dst_addr_ep, profile, cluster, min(1, src_ep), data
-                )
-            except zigpy_cc.exception.CommandError as ex:
-                return (
-                    ex.status,
-                    "Couldn't enqueue send data request for broadcast: {}".format(ex),
-                )
+            await self._api.request_raw(obj)
 
-            r = await asyncio.wait_for(req.result, SEND_CONFIRM_TIMEOUT)
+        except CommandError as ex:
+            return (
+                ex.status,
+                "Couldn't enqueue send data request for broadcast: {}".format(ex),
+            )
 
-            if r:
-                LOGGER.warning(
-                    "Error while sending %s req id broadcast: 0x%02x", req_id, r
-                )
-                return r, "broadcast send failure"
-            return r, "broadcast send success"
+        return 0, "broadcast send success"
 
     async def permit_ncp(self, time_s=60):
-        raise TODO('permit_ncp')
         assert 0 <= time_s <= 254
-        await self._api.write_parameter(NetworkParameter.permit_join, time_s)
+        payload = {
+            "addrmode": 0x0F,
+            "dstaddr": 0xFFFC,
+            "duration": time_s,
+            "tcsignificance": 0,
+        }
+        await self._api.request(Subsystem.ZDO, "mgmtPermitJoinReq", payload)
 
     def handle_znp(self, obj: ZpiObject):
         if obj.type != t.CommandType.AREQ:
@@ -249,16 +262,16 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         frame = obj.to_unpi_frame()
 
-        nwk = obj.payload['srcaddr'] if 'srcaddr' in obj.payload else None
-        ieee = obj.payload['ieeeaddr'] if 'ieeeaddr' in obj.payload else None
+        nwk = obj.payload["srcaddr"] if "srcaddr" in obj.payload else None
+        ieee = obj.payload["ieeeaddr"] if "ieeeaddr" in obj.payload else None
         profile_id = zha.PROFILE_ID
         src_ep = 0
         dst_ep = 0
         lqi = 0
         rssi = 0
 
-        if obj.subsystem == t.Subsystem.ZDO and obj.command == 'endDeviceAnnceInd':
-            nwk = obj.payload['nwkaddr']
+        if obj.subsystem == t.Subsystem.ZDO and obj.command == "endDeviceAnnceInd":
+            nwk = obj.payload["nwkaddr"]
             LOGGER.info("New device joined: 0x%04x, %s", nwk, ieee)
             self.handle_join(nwk, ieee, 0)
             # TODO TEST
@@ -278,16 +291,20 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             tsn = bytes([obj.sequence])
             data = tsn + frame.data[prefix_length:]
 
-        elif obj.subsystem == t.Subsystem.AF and (obj.command == 'incomingMsg' or obj.command == 'incomingMsgExt'):
+        elif obj.subsystem == t.Subsystem.AF and (
+            obj.command == "incomingMsg" or obj.command == "incomingMsgExt"
+        ):
             # ZCL commands
-            cluster_id = obj.payload['clusterid']
-            src_ep = obj.payload['srcendpoint']
-            dst_ep = obj.payload['dstendpoint']
-            data = obj.payload['data']
-            lqi = obj.payload['linkquality']
+            cluster_id = obj.payload["clusterid"]
+            src_ep = obj.payload["srcendpoint"]
+            dst_ep = obj.payload["dstendpoint"]
+            data = obj.payload["data"]
+            lqi = obj.payload["linkquality"]
 
         else:
-            LOGGER.warning("Unhandled message: %s %s", t.Subsystem(obj.subsystem), obj.command)
+            LOGGER.warning(
+                "Unhandled message: %s %s", t.Subsystem(obj.subsystem), obj.command
+            )
             return
 
         try:
@@ -296,13 +313,15 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             else:
                 device = self.get_device(nwk=nwk)
         except KeyError:
-            LOGGER.debug("Received frame from unknown device: %s", ieee if ieee else nwk)
+            LOGGER.debug(
+                "Received frame from unknown device: %s", ieee if ieee else nwk
+            )
             return
 
         device.radio_details(lqi, rssi)
         if obj.subsystem == t.Subsystem.ZDO:
             pass
-        LOGGER.info('handle_message %s', obj.command)
+        LOGGER.info("handle_message %s", obj.command)
         self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
 
         #

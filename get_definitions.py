@@ -1,8 +1,11 @@
+import fileinput
+import os
 import urllib.request
 
 from py._builtin import execfile
 
-url = "https://raw.githubusercontent.com/Koenkk/zigbee-herdsman/v0.12.24/src/adapter/z-stack/znp/definition.ts"
+url = "https://raw.githubusercontent.com/Koenkk/zigbee-herdsman/" \
+      "v0.12.24/src/adapter/z-stack/znp/definition.ts"
 target_path = "zigpy_cc/definition.py"
 
 print("Download file...")
@@ -39,6 +42,7 @@ py_head = "\n".join((
 
 ts_export = "export default Definition;"
 
+print("Convert to python...")
 text = text.replace(ts_head, py_head)
 text = text.replace(ts_export, "")
 text = text.replace('//', '#')
@@ -47,6 +51,18 @@ text = text.replace(']: [', ': [')
 
 with open(target_path, "w") as text_file:
     text_file.write(text)
+
+print("Check syntax...")
+execfile(target_path)
+
+print("Format with black...")
+os.system('black ' + target_path)
+
+with fileinput.FileInput(target_path, inplace=True) as file:
+    for line in file:
+        line = line.replace('},],', '}],')
+        line = line.replace('],},', ']},')
+        print(line, end='')
 
 print("Check syntax...")
 execfile(target_path)
