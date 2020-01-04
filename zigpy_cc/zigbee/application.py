@@ -1,18 +1,14 @@
-import asyncio
-import binascii
 import logging
 
 import zigpy.application
 import zigpy.device
-import zigpy.endpoint
-import zigpy.exceptions
 import zigpy.types
 import zigpy.util
-from zigpy_cc.exception import CommandError, TODO
 from zigpy.profiles import zha
 from zigpy.zdo.types import ZDOCmd
 from zigpy_cc import types as t
 from zigpy_cc.api import API
+from zigpy_cc.exception import CommandError, TODO
 from zigpy_cc.types import Subsystem, NetworkOptions, ZnpVersion
 from zigpy_cc.zigbee.start_znp import start_znp
 from zigpy_cc.zpi_object import ZpiObject
@@ -323,23 +319,3 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             pass
         LOGGER.info("handle_message %s", obj.command)
         self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
-
-        #
-        # try:
-        #     if src_addr.address_mode == t.ADDRESS_MODE.NWK_AND_IEEE:
-        #         device = self.get_device(ieee=src_addr.ieee)
-        #     elif src_addr.address_mode == t.ADDRESS_MODE.NWK.value:
-        #         device = self.get_device(nwk=src_addr.address)
-        #     elif src_addr.address_mode == t.ADDRESS_MODE.IEEE.value:
-        #         device = self.get_device(ieee=src_addr.address)
-        #     else:
-        #         raise Exception(
-        #             "Unsupported address mode in handle_rx: %s"
-        #             % (src_addr.address_mode)
-        #         )
-        # except KeyError:
-        #     LOGGER.debug("Received frame from unknown device: 0x%04x", src_addr.address)
-        #     return
-        #
-        # device.radio_details(lqi, rssi)
-        # self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)

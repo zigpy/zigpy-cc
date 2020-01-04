@@ -84,26 +84,10 @@ async def needsToBeInitialised(znp: API, version, options):
                 "readConfiguration",
             )
 
-        try:
-            await validate_item(znp, Items.panID(options.panID), "panID")
-            await validate_item(
-                znp, Items.extendedPanID(options.extendedPanID), "extendedPanID"
-            )
-        except Exception as error:
-            if version == ZnpVersion.zStack30x or version == ZnpVersion.zStack3x0:
-                # Zigbee-herdsman =< 0.6.5 didn't set the panID and extendedPanID on zStack 3.
-                # As we are now checking it, it would trigger a reinitialise which will cause users
-                # to lose their network. Therefore we are ignoring this case.
-                # When the panID has never been set, it will be [0xFF, 0xFF].
-                current = await znp.request(
-                    Subsystem.SYS, "osalNvRead", Items.panID(options.panID)
-                )
-                if current.payload.value == bytes([0xFF, 0xFF]):
-                    LOGGER.debug("Skip enforcing panID because a random panID is used")
-                else:
-                    raise error
-            else:
-                raise error
+        await validate_item(znp, Items.panID(options.panID), "panID")
+        await validate_item(
+            znp, Items.extendedPanID(options.extendedPanID), "extendedPanID"
+        )
 
         return False
     except Exception as e:
@@ -193,9 +177,10 @@ async def initialise(znp: API, version, options: NetworkOptions):
         await znp.request(Subsystem.APP_CNF, "bdbStartCommissioning", {"mode": 0x04})
         try:
             await started.wait()
-        except:
+        except Exception:
             raise Exception(
-                "Coordinator failed to start, probably the panID is already in use, try a different panID or channel"
+                "Coordinator failed to start, probably the panID is already in use, "
+                "try a different panID or channel"
             )
 
         await znp.request(Subsystem.APP_CNF, "bdbStartCommissioning", {"mode": 0x02})
@@ -230,10 +215,11 @@ async def start_znp(znp: API, version, options: NetworkOptions, backupPath=""):
         await initialise(znp, version, options)
 
         if version == ZnpVersion.zStack12:
-            # zStack12 allows to restore a network without restoring a backup (as long as the
-            # network key, panID and channel don't change).
+            # zStack12 allows to restore a network without restoring a backup
+            # (as long as the network key, panID and channel don't change).
             # If the device has not been configured yet we assume that this is the case.
-            # If we always return 'reset' the controller clears the database on a reflash of the stick.
+            # If we always return 'reset'
+            # the controller clears the database on a reflash of the stick.
             result = "reset" if hasConfigured else "restored"
         else:
             result = "reset"

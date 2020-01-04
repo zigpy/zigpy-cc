@@ -80,8 +80,10 @@ def test_data_received_runt_frame(gw):
 
 
 def test_data_received_extra(gw):
-    data = b"\xfe\x0ea\x02\x02\x00\x02\x06\x03\x90\x154\x01\x02\x01\x00\x00\x00\xdb" \
-           b"\xfe\x00"
+    data = (
+        b"\xfe\x0ea\x02\x02\x00\x02\x06\x03\x90\x154\x01\x02\x01\x00\x00\x00\xdb"
+        b"\xfe\x00"
+    )
     gw.data_received(data)
     assert gw._api.data_received.call_count == 1
     assert gw._parser.buffer == b"\xfe\x00"
