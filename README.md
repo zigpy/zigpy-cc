@@ -9,6 +9,21 @@ The goal of this project to add native support for the CC25xx based ZigBee modul
 
 This library is a port of [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman/tree/v0.12.24) (v0.12.24).
 
+## WARNING!!! - Work in progress
+This project is under development, it is not working yet.
+
+TODO list:
+- [x] uart communication
+- [x] init coordinator
+- [x] handling join requests
+- [x] get node descriptor
+- [x] get endpoint list
+- [x] get endpoint info
+- [ ] bind
+- [ ] fix entities in Home Assistant
+- [ ] fix lint problems
+- [ ] add more tests
+- [ ] ...more coming?
 
 # Releases via PyPI
 Tagged versions are also released via PyPI

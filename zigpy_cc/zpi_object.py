@@ -154,7 +154,7 @@ class ZpiObject:
 
         return res
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         command_type = CommandType(self.type).name
         subsystem = Subsystem(self.subsystem).name
         return "{} {} {} tsn: {} {}".format(

@@ -176,41 +176,22 @@ zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128,
 """
 
 
-@pytest.mark.skip
 @pytest.mark.asyncio
-async def test_node_desc(api: zigpy_cc.api.API, monkeypatch):
-    async def mock_fut():
-        res = mock.sentinel.cmd_result
-        res.payload = {}
-
-        return res
-
-    # monkeypatch.setattr(asyncio, "Future", mock_fut)
+async def test_node_desc(api: zigpy_cc.api.API):
     api._uart.send = mock.MagicMock()
 
     fut = api.request(5, "nodeDescReq", {"dstaddr": 53322, "nwkaddrofinterest": 0})
+    fut = asyncio.ensure_future(fut)
 
-    api.data_received(UnpiFrame(3, 5, 2, b"\x00"))
-    payload = {
-        "srcaddr": 53322,
-        "status": 128,
-        "nwkaddr": 0,
-        "logicaltype_cmplxdescavai_userdescavai": 0,
-        "apsflags_freqband": 0,
-        "maccapflags": 0,
-        "manufacturercode": 0,
-        "maxbuffersize": 0,
-        "maxintransfersize": 0,
-        "servermask": 0,
-        "maxouttransfersize": 0,
-        "descriptorcap": 0,
-    }
-    api.data_received(api._create_obj(5, "nodeDescRsp", payload).to_unpi_frame())
+    async def asd():
+        api.data_received(UnpiFrame(3, 5, 2, b"\x00"))
+        pass
 
-    res = await asyncio.wait_for(fut, 0.1)
+    await asyncio.wait([fut, asd()], timeout=0.1)
 
-    assert res == ""
-
+    assert api._uart.send.call_count == 1
+    assert fut.done()
+    assert "SRSP ZDO nodeDescReq tsn: None {'status': 0}" == str(fut.result())
 
 #
 # @pytest.mark.parametrize(
