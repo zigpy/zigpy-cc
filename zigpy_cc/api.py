@@ -23,7 +23,9 @@ class Matcher(Repr):
 
 
 class Waiter(Repr):
-    def __init__(self, type: int, subsystem: int, command: str, payload, timeout: int, sequence):
+    def __init__(
+        self, type: int, subsystem: int, command: str, payload, timeout: int, sequence
+    ):
         self.matcher = Matcher(type, subsystem, command, payload)
         self.future = asyncio.get_event_loop().create_future()
         self.timeout = timeout
@@ -37,13 +39,19 @@ class Waiter(Repr):
 
     def match(self, obj: ZpiObject):
         matcher = self.matcher
-        if matcher.type != obj.type or matcher.subsystem != obj.subsystem or matcher.command != obj.command:
+        if (
+            matcher.type != obj.type
+            or matcher.subsystem != obj.subsystem
+            or matcher.command != obj.command
+        ):
             return False
 
         if matcher.payload:
             for f, v in matcher.payload.items():
                 if v != obj.payload[f]:
-                    LOGGER.warn("payload missmatch\n-%s\n+%s", matcher.payload, obj.payload)
+                    LOGGER.warning(
+                        "payload missmatch\n-%s\n+%s", matcher.payload, obj.payload
+                    )
                     return False
 
         return True
@@ -76,7 +84,7 @@ class API:
         return await self.request(subsystem, command, payload)
 
     async def request(self, subsystem, command, payload, expectedStatus=None):
-        obj = self._create_obj(subsystem, command, payload)
+        obj = ZpiObject.from_command(subsystem, command, payload)
         return await self.request_raw(obj, expectedStatus)
 
     async def request_raw(self, obj, expectedStatus=None):
@@ -90,19 +98,28 @@ class API:
 
         if obj.type == CommandType.SREQ:
             timeout = Timeouts.SREQ
-            waiter = self.wait_for(CommandType.SRSP, obj.subsystem, obj.command, {}, timeout)
+            waiter = self.wait_for(
+                CommandType.SRSP, obj.subsystem, obj.command, {}, timeout
+            )
             self._uart.send(frame)
             result = await waiter.wait()
-            if result and 'status' in result.payload and result.payload['status'] not in expectedStatus:
+            if (
+                result
+                and "status" in result.payload
+                and result.payload["status"] not in expectedStatus
+            ):
                 raise CommandError(
-                    result.payload['status'],
-                    "SREQ '{}' failed with status '{}' (expected '{}')".format(obj.command, result.payload['status'],
-                                                                               expectedStatus),
+                    result.payload["status"],
+                    "SREQ '{}' failed with status '{}' (expected '{}')".format(
+                        obj.command, result.payload["status"], expectedStatus
+                    ),
                 )
             else:
                 return result
         elif obj.type == CommandType.AREQ and obj.is_reset_command():
-            waiter = self.wait_for(CommandType.AREQ, Subsystem.SYS, 'resetInd', {}, Timeouts.reset)
+            waiter = self.wait_for(
+                CommandType.AREQ, Subsystem.SYS, "resetInd", {}, Timeouts.reset
+            )
             # TODO clear queue
             self._uart.send(frame)
             return await waiter.wait()
@@ -111,19 +128,8 @@ class API:
                 self._uart.send(frame)
                 return None
             else:
+                LOGGER.warning("Unknown type '%s'", obj.type)
                 raise Exception("Unknown type '{}'".format(obj.type))
-
-        # self._uart.send(frame)
-        # fut = asyncio.Future()
-        # seq = "{}_{}".format(subsystem, 'resetInd' if command == "resetReq" else command)
-        #
-        # self._awaiting[seq] = fut
-        # try:
-        #     return await asyncio.wait_for(fut, timeout=COMMAND_TIMEOUT)
-        # except asyncio.TimeoutError:
-        #     LOGGER.warning("No response to '%s' command", obj)
-        #     self._awaiting.pop(seq)
-        #     raise
 
     def create_response_waiter(self, obj: ZpiObject, sequence=None):
         waiter = self.get_response_waiter(obj, sequence)
@@ -131,43 +137,47 @@ class API:
             LOGGER.debug("waiting for %d %s", sequence, obj.command)
 
     def get_response_waiter(self, obj: ZpiObject, sequence=None):
-        if obj.type == CommandType.SREQ and obj.command == 'dataRequest':
+        if obj.type == CommandType.SREQ and obj.command == "dataRequest":
             return None
 
-        if obj.type == CommandType.SREQ and obj.command.endswith('Req'):
-            rsp = obj.command.replace('Req', 'Rsp')
+        if obj.type == CommandType.SREQ and obj.command.endswith("Req"):
+            rsp = obj.command.replace("Req", "Rsp")
             for cmd in Definition[obj.subsystem]:
-                if rsp == cmd['name']:
-                    payload = {'srcaddr': obj.payload['dstaddr']}
-                    return self.wait_for(CommandType.AREQ, Subsystem.ZDO, rsp, payload, sequence=sequence)
+                if rsp == cmd["name"]:
+                    payload = {"srcaddr": obj.payload["dstaddr"]}
+                    return self.wait_for(
+                        CommandType.AREQ, Subsystem.ZDO, rsp, payload, sequence=sequence
+                    )
 
-        LOGGER.warn("no response cmd configured for %s", obj.command)
+        LOGGER.warning("no response cmd configured for %s", obj.command)
         return None
 
-    def wait_for(self, type, subsystem, command, payload=None, timeout=Timeouts.default, sequence=None):
+    def wait_for(
+        self,
+        type,
+        subsystem,
+        command,
+        payload=None,
+        timeout=Timeouts.default,
+        sequence=None,
+    ):
         waiter = Waiter(type, subsystem, command, payload, timeout, sequence)
         self._waiters.append(waiter)
 
         return waiter
 
-    async def aps_data_request(self, req_id, dst_addr_ep, profile, cluster, src_ep, data):
-        raise Exception('Not implemented')
-
     def data_received(self, frame):
         obj = ZpiObject.from_unpi_frame(frame)
-        LOGGER.debug('--> %s', obj)
+        LOGGER.debug("--> %s", obj)
 
         to_remove = []
         for waiter in self._waiters:
-            if waiter.future.done():
-                LOGGER.warning('waiter already done %s', waiter)
-                to_remove.append(waiter)
-            elif waiter.match(obj):
+            if waiter.match(obj):
                 to_remove.append(waiter)
                 waiter.set_result(obj)
-                obj.sequence = waiter.sequence
-        # else:
-        #     LOGGER.debug('NOT A RESPONSE %s', obj)
+                if waiter.sequence:
+                    obj.sequence = waiter.sequence
+                    break
 
         for waiter in to_remove:
             self._waiters.remove(waiter)
@@ -177,8 +187,7 @@ class API:
 
         try:
             getattr(self, "_handle_%s" % (obj.command,))(obj)
-        except AttributeError as e:
-            # LOGGER.debug(e)
+        except AttributeError:
             pass
 
     async def version(self):
@@ -195,10 +204,3 @@ class API:
 
     def _handle_srcRtgInd(self, data):
         pass
-
-    def _create_obj(self, subsystem, command, payload):
-        cmd = next(c for c in Definition[subsystem] if c["name"] == command)
-
-        return ZpiObject(
-            cmd["type"], subsystem, command, cmd["ID"], payload, cmd["request"]
-        )

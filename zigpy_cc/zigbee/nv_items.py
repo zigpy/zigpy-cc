@@ -7,19 +7,23 @@ class Items:
     @staticmethod
     def znpHasConfiguredInit(version):
         return {
-            "id": NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK1 if version == ZnpVersion.zStack12 else NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK3,
+            "id": NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK1
+            if version == ZnpVersion.zStack12
+            else NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK3,
             "len": 0x01,
             "initlen": 0x01,
-            "initvalue": b'\x00',
+            "initvalue": b"\x00",
         }
 
     @staticmethod
     def znpHasConfigured(version):
         return {
-            "id": NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK1 if version == ZnpVersion.zStack12 else NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK3,
+            "id": NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK1
+            if version == ZnpVersion.zStack12
+            else NvItemsIds.ZNP_HAS_CONFIGURED_ZSTACK3,
             "offset": 0x00,
             "len": 0x01,
-            "value": b'\x55',
+            "value": b"\x55",
         }
 
     @staticmethod
@@ -28,7 +32,7 @@ class Items:
             "id": NvItemsIds.PANID,
             "len": 0x02,
             "offset": 0x00,
-            "value": bytes([panID & 0xFF, (panID >> 8) & 0xFF])
+            "value": bytes([panID & 0xFF, (panID >> 8) & 0xFF]),
         }
 
     @staticmethod
@@ -37,7 +41,7 @@ class Items:
             "id": NvItemsIds.EXTENDED_PAN_ID,
             "len": 0x08,
             "offset": 0x00,
-            "value": bytes(extendedPanID)
+            "value": bytes(extendedPanID),
         }
 
     @staticmethod
@@ -55,7 +59,7 @@ class Items:
             "id": NvItemsIds.PRECFGKEYS_ENABLE,
             "len": 0x01,
             "offset": 0x00,
-            "value": b'\x01' if distribute else b'\x00',
+            "value": b"\x01" if distribute else b"\x00",
         }
 
     @staticmethod
@@ -93,7 +97,7 @@ class Items:
             "id": NvItemsIds.ZDO_DIRECT_CB,
             "len": 0x01,
             "offset": 0x00,
-            "value": b'\x01',
+            "value": b"\x01",
         }
 
     @staticmethod
@@ -103,8 +107,40 @@ class Items:
             "offset": 0x00,
             "len": 0x20,
             # ZigBee Alliance Pre-configured TC Link Key - 'ZigBeeAlliance09'
-            "value": bytes([
-                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x5a, 0x69, 0x67, 0x42, 0x65, 0x65, 0x41, 0x6c,
-                0x6c, 0x69, 0x61, 0x6e, 0x63, 0x65, 0x30, 0x39, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-            ]),
+            "value": bytes(
+                [
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0x5A,
+                    0x69,
+                    0x67,
+                    0x42,
+                    0x65,
+                    0x65,
+                    0x41,
+                    0x6C,
+                    0x6C,
+                    0x69,
+                    0x61,
+                    0x6E,
+                    0x63,
+                    0x65,
+                    0x30,
+                    0x39,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                ]
+            ),
         }

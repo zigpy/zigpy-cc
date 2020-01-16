@@ -1,9 +1,9 @@
 import zigpy.types
+from zigpy_cc.exception import TODO
 from zigpy_cc.types import ParameterType
 
 
 class BuffaloOptions:
-
     def __init__(self) -> None:
         self.startIndex = None
         self.length = None
@@ -14,6 +14,7 @@ class Buffalo:
     def __init__(self, buffer, position=0) -> None:
         self.position = position
         self.buffer = buffer
+        self._len = len(buffer)
 
     def __len__(self) -> int:
         return len(self.buffer)
@@ -37,7 +38,7 @@ class Buffalo:
             for v in value:
                 self.write(v, 2)
         else:
-            raise Exception('write not implemented', ParameterType(type))
+            raise TODO("write %s", ParameterType(type))
 
     def write(self, value, length=1):
         self.buffer += value.to_bytes(length, "little")
@@ -69,7 +70,7 @@ class Buffalo:
                 for i in range(0, options.length):
                     res.append(self.read_int(4))
             else:
-                raise Exception('read not implemented', ParameterType(type))
+                raise TODO("read %s", ParameterType(type))
 
         return res
 
@@ -77,6 +78,8 @@ class Buffalo:
         return int.from_bytes(self.read(length), "little")
 
     def read(self, length=1):
-        res = self.buffer[self.position: self.position + length]
+        if self.position + length > self._len:
+            raise OverflowError
+        res = self.buffer[self.position : self.position + length]
         self.position += length
         return res

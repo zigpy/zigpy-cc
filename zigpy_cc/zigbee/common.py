@@ -146,7 +146,7 @@ class Common:
         "NOT_PERMITTED": 139,
         "TABLE_FULL": 140,
         "NOT_AUTHORIZED": 141,
-        "BINDING_TABLE_FULL": 142
+        "BINDING_TABLE_FULL": 142,
     }
     logicalChannels = {
         "NONE": 0,
@@ -165,7 +165,7 @@ class Common:
         "CH23": 23,
         "CH24": 24,
         "CH25": 25,
-        "CH26": 26
+        "CH26": 26,
     }
     channelMask = {
         "CH11": 2048,
@@ -184,5 +184,5 @@ class Common:
         "CH24": 16777216,
         "CH25": 33554432,
         "CH26": 67108864,
-        "CH_ALL": 134215680
+        "CH_ALL": 134215680,
     }

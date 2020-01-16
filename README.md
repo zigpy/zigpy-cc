@@ -11,6 +11,22 @@ zigpy-cc allows Zigpy to interact with TI's CC253X ZigBee Network Processor(ZNP)
 
 This library is a port of the [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman/tree/v0.12.24) project (version 0.12.24) by Koen Kanters (a.k.a. Koenkk GitHub) which is turn was originally forked from the [zigbee-shepherd](https://github.com/zigbeer/zigbee-shepherd) project by zigbeer. 
 
+## WARNING!!! - Work in progress
+This project is under development, it is not working yet.
+
+TODO list:
+- [x] uart communication
+- [x] init coordinator
+- [x] handling join requests
+- [x] get node descriptor
+- [x] get endpoint list
+- [x] get endpoint info
+- [ ] bind
+- [ ] fix entities in Home Assistant
+- [ ] fix lint problems
+- [ ] add more tests
+- [ ] ...more coming?
+
 # Hardware requirement
 For now best is to follow the instructions from the [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project on what hardware is needed and how to flash a CC2531 USB stick with their custom Z-Stack firmware 
 - https://www.zigbee2mqtt.io/

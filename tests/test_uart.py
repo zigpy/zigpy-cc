@@ -9,6 +9,7 @@ from zigpy_cc import uart
 def eq(a, b):
     assert str(a) == str(b)
 
+
 @pytest.fixture(scope="function")
 def gw():
     gw = uart.Gateway(mock.MagicMock())
@@ -50,14 +51,20 @@ def test_data_received_chunk_frame(gw):
     assert gw._api.data_received.call_count == 0
     gw.data_received(data[-4:])
     assert gw._api.data_received.call_count == 1
-    eq(gw._api.data_received.call_args[0][0], uart.UnpiFrame(3, 1, 2, data[4:-1], 14, 218))
+    eq(
+        gw._api.data_received.call_args[0][0],
+        uart.UnpiFrame(3, 1, 2, data[4:-1], 14, 218),
+    )
 
 
 def test_data_received_full_frame(gw):
     data = b"\xfe\x0ea\x02\x02\x00\x02\x06\x03\x90\x154\x01\x02\x01\x00\x00\x00\xdb"
     gw.data_received(data)
     assert gw._api.data_received.call_count == 1
-    eq(gw._api.data_received.call_args[0][0], uart.UnpiFrame(3, 1, 2, data[4:-1], 14, 219))
+    eq(
+        gw._api.data_received.call_args[0][0],
+        uart.UnpiFrame(3, 1, 2, data[4:-1], 14, 219),
+    )
 
 
 def test_data_received_incomplete_frame(gw):
@@ -73,7 +80,10 @@ def test_data_received_runt_frame(gw):
 
 
 def test_data_received_extra(gw):
-    data = b"\xfe\x0ea\x02\x02\x00\x02\x06\x03\x90\x154\x01\x02\x01\x00\x00\x00\xdb\xfe\x00"
+    data = (
+        b"\xfe\x0ea\x02\x02\x00\x02\x06\x03\x90\x154\x01\x02\x01\x00\x00\x00\xdb"
+        b"\xfe\x00"
+    )
     gw.data_received(data)
     assert gw._api.data_received.call_count == 1
     assert gw._parser.buffer == b"\xfe\x00"
@@ -84,6 +94,7 @@ def test_data_received_wrong_checksum(gw):
     gw.data_received(data)
     assert gw._api.data_received.call_count == 0
 
+
 @pytest.mark.skip("TODO")
 def test_unescape(gw):
     data = b"\x00\xDB\xDC\x00\xDB\xDD\x00\x00\x00"
@@ -91,11 +102,13 @@ def test_unescape(gw):
     r = gw._unescape(data)
     assert r == data_unescaped
 
+
 @pytest.mark.skip("TODO")
 def test_unescape_error(gw):
     data = b"\x00\xDB\xDC\x00\xDB\xDD\x00\x00\x00\xDB"
     r = gw._unescape(data)
     assert r is None
+
 
 @pytest.mark.skip("TODO")
 def test_escape(gw):

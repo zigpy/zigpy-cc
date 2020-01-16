@@ -1,0 +1,102 @@
+020-01-02 21:27:50 INFO (MainThread) [zigpy.device] [0x2e80] Discovered endpoints: [1]
+2020-01-02 21:27:50 INFO (MainThread) [zigpy.endpoint] [0x2e80:1] Discovering endpoint information
+Tries remaining: 3
+2020-01-02 21:27:50 DEBUG (MainThread) [zigpy.device] [0x2e80] Extending timeout for 0x1d request
+2020-01-02 21:27:50 DEBUG (MainThread) [zigpy_cc.zigbee.application] Sending Zigbee request with tsn 29 under 30 request id, data: b'\x1d\x80.\x01'
+2020-01-02 21:27:50 DEBUG (MainThread) [zigpy_cc.api] waiting for 29 simpleDescReq
+2020-01-02 21:27:50 DEBUG (MainThread) [zigpy_cc.api] <-- SREQ ZDO simpleDescReq tsn: 29 {'dstaddr': 0x2e80, 'nwkaddrofinterest': 0x2e80, 'endpoint': 1}
+2020-01-02 21:27:50 DEBUG (MainThread) [zigpy_cc.uart] Send: <UnpiFrame type=CommandType.SREQ subsystem=Subsystem.ZDO command_id=4 data=b'\x80.\x80.\x01' length=None fcs=None>
+2020-01-02 21:27:50 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=3 subsystem=5 command_id=4 data=b'\x00' length=1 fcs=96>
+2020-01-02 21:27:50 DEBUG (MainThread) [zigpy_cc.api] --> SRSP ZDO simpleDescReq tsn: None {'status': 0}
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=2 subsystem=5 command_id=132 data=b'\x80.\x00\x80. \x01^\xc0\x10\x08\x02\x06\x00\x00\x01\x00\x03\x00\t\x00\x05\x0b\x00\x10\x06\x03\x00\x04\x00\x06\x00\x08\x00\x19\x00\x00\x10' length=38 fcs=87>
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] --> AREQ ZDO simpleDescRsp tsn: None {'srcaddr': 0x2e80, 'status': 0, 'nwkaddr': 0x2e80, 'len': 32, 'endpoint': 1, 'profileid': 49246, 'deviceid': 2064, 'deviceversion': 2, 'numinclusters': 6, 'inclusterlist': [0, 1, 3, 9, 2821, 4096], 'numoutclusters': 6, 'outclusterlist': [3, 4, 6, 8, 25, 4096]}
+2020-01-02 21:27:51 INFO (MainThread) [zigpy_cc.zigbee.application] REPLY for 29 simpleDescRsp
+2020-01-02 21:27:51 INFO (MainThread) [zigpy_cc.zigbee.application] handle_message simpleDescRsp
+2020-01-02 21:27:51 INFO (MainThread) [zigpy.endpoint] [0x2e80:1] Discovered endpoint information: <SimpleDescriptor endpoint=1 profile=49246 device_type=2064 device_version=2 input_clusters=[0, 1, 3, 9, 2821, 4096] output_clusters=[3, 4, 6, 8, 25, 4096]>
+
+
+2020-01-02 21:27:51 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:ZDO](TRADFRI wireless dimmer): channel: 'async_configure' stage succeeded
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy.device] [0x2e80] Extending timeout for 0x21 request
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.zigbee.application] Sending Zigbee request with tsn 33 under 34 request id, data: b"!<x'\xfe\xffW\x0b\x00\x01\x01\x00\x03\x0c%\xed\x18\x00K\x12\x00\x01"
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] waiting for 33 bindReq
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] <-- SREQ ZDO bindReq tsn: 33 {'dstaddr': 0x2e80, 'srcaddr': 00:0b:57:ff:fe:27:78:3c, 'srcendpoint': 1, 'clusterid': 1, 'dstaddrmode': 3, 'dstaddress': 00:12:4b:00:18:ed:25:0c, 'dstendpoint': 1}
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.uart] Send: <UnpiFrame type=CommandType.SREQ subsystem=Subsystem.ZDO command_id=33 data=b"\x80.\x00\x0bW\xff\xfe'x<\x01\x01\x00\x03\x00\x12K\x00\x18\xed%\x0c\x01" length=None fcs=None>
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy.device] [0x2e80] Extending timeout for 0x23 request
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.zigbee.application] Sending Zigbee request with tsn 35 under 36 request id, data: b"#<x'\xfe\xffW\x0b\x00\x01\x00\x10\x03\x0c%\xed\x18\x00K\x12\x00\x01"
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] waiting for 35 bindReq
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] <-- SREQ ZDO bindReq tsn: 35 {'dstaddr': 0x2e80, 'srcaddr': 00:0b:57:ff:fe:27:78:3c, 'srcendpoint': 1, 'clusterid': 4096, 'dstaddrmode': 3, 'dstaddress': 00:12:4b:00:18:ed:25:0c, 'dstendpoint': 1}
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.uart] Send: <UnpiFrame type=CommandType.SREQ subsystem=Subsystem.ZDO command_id=33 data=b"\x80.\x00\x0bW\xff\xfe'x<\x01\x00\x10\x03\x00\x12K\x00\x18\xed%\x0c\x01" length=None fcs=None>
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy.device] [0x2e80] Extending timeout for 0x25 request
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.zigbee.application] Sending Zigbee request with tsn 37 under 38 request id, data: b"%<x'\xfe\xffW\x0b\x00\x01\x06\x00\x03\x0c%\xed\x18\x00K\x12\x00\x01"
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] waiting for 37 bindReq
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] <-- SREQ ZDO bindReq tsn: 37 {'dstaddr': 0x2e80, 'srcaddr': 00:0b:57:ff:fe:27:78:3c, 'srcendpoint': 1, 'clusterid': 6, 'dstaddrmode': 3, 'dstaddress': 00:12:4b:00:18:ed:25:0c, 'dstendpoint': 1}
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.uart] Send: <UnpiFrame type=CommandType.SREQ subsystem=Subsystem.ZDO command_id=33 data=b"\x80.\x00\x0bW\xff\xfe'x<\x01\x06\x00\x03\x00\x12K\x00\x18\xed%\x0c\x01" length=None fcs=None>
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=3 subsystem=5 command_id=33 data=b'\x00' length=1 fcs=69>
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] --> SRSP ZDO bindReq tsn: None {'status': 0}
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=3 subsystem=5 command_id=33 data=b'\x00' length=1 fcs=69>
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] --> SRSP ZDO bindReq tsn: None {'status': 0}
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=3 subsystem=5 command_id=33 data=b'\x00' length=1 fcs=69>
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] --> SRSP ZDO bindReq tsn: None {'status': 0}
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=2 subsystem=5 command_id=161 data=b'\x80.\x84' length=3 fcs=205>
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] --> AREQ ZDO bindRsp tsn: None {'srcaddr': 0x2e80, 'status': 132}
+2020-01-02 21:27:51 INFO (MainThread) [zigpy_cc.zigbee.application] REPLY for 37 bindRsp
+2020-01-02 21:27:51 INFO (MainThread) [zigpy_cc.zigbee.application] handle_message bindRsp
+2020-01-02 21:27:51 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x0006]: bound 'on_off' cluster: Status.NOT_SUPPORTED
+2020-01-02 21:27:51 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x0006]: finished channel configuration
+2020-01-02 21:27:51 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x0006]: channel: 'async_configure' stage succeeded
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy.device] [0x2e80] Extending timeout for 0x27 request
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.zigbee.application] Sending Zigbee request with tsn 39 under 40 request id, data: b"'<x'\xfe\xffW\x0b\x00\x01\x08\x00\x03\x0c%\xed\x18\x00K\x12\x00\x01"
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] waiting for 39 bindReq
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] <-- SREQ ZDO bindReq tsn: 39 {'dstaddr': 0x2e80, 'srcaddr': 00:0b:57:ff:fe:27:78:3c, 'srcendpoint': 1, 'clusterid': 8, 'dstaddrmode': 3, 'dstaddress': 00:12:4b:00:18:ed:25:0c, 'dstendpoint': 1}
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.uart] Send: <UnpiFrame type=CommandType.SREQ subsystem=Subsystem.ZDO command_id=33 data=b"\x80.\x00\x0bW\xff\xfe'x<\x01\x08\x00\x03\x00\x12K\x00\x18\xed%\x0c\x01" length=None fcs=None>
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=3 subsystem=5 command_id=33 data=b'\x00' length=1 fcs=69>
+2020-01-02 21:27:51 DEBUG (MainThread) [zigpy_cc.api] --> SRSP ZDO bindReq tsn: None {'status': 0}
+2020-01-02 21:27:52 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=2 subsystem=5 command_id=161 data=b'\x80.\x84' length=3 fcs=205>
+2020-01-02 21:27:52 DEBUG (MainThread) [zigpy_cc.api] --> AREQ ZDO bindRsp tsn: None {'srcaddr': 0x2e80, 'status': 132}
+2020-01-02 21:27:52 INFO (MainThread) [zigpy_cc.zigbee.application] REPLY for 39 bindRsp
+2020-01-02 21:27:52 INFO (MainThread) [zigpy_cc.zigbee.application] handle_message bindRsp
+2020-01-02 21:27:52 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x0008]: bound 'level' cluster: Status.NOT_SUPPORTED
+2020-01-02 21:27:52 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x0008]: finished channel configuration
+2020-01-02 21:27:52 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x0008]: channel: 'async_configure' stage succeeded
+2020-01-02 21:27:52 DEBUG (MainThread) [zigpy.device] [0x2e80] Extending timeout for 0x29 request
+2020-01-02 21:27:52 DEBUG (MainThread) [zigpy_cc.zigbee.application] Sending Zigbee request with tsn 41 under 42 request id, data: b")<x'\xfe\xffW\x0b\x00\x01\x00\x00\x03\x0c%\xed\x18\x00K\x12\x00\x01"
+2020-01-02 21:27:52 DEBUG (MainThread) [zigpy_cc.api] waiting for 41 bindReq
+2020-01-02 21:27:52 DEBUG (MainThread) [zigpy_cc.api] <-- SREQ ZDO bindReq tsn: 41 {'dstaddr': 0x2e80, 'srcaddr': 00:0b:57:ff:fe:27:78:3c, 'srcendpoint': 1, 'clusterid': 0, 'dstaddrmode': 3, 'dstaddress': 00:12:4b:00:18:ed:25:0c, 'dstendpoint': 1}
+2020-01-02 21:27:52 DEBUG (MainThread) [zigpy_cc.uart] Send: <UnpiFrame type=CommandType.SREQ subsystem=Subsystem.ZDO command_id=33 data=b"\x80.\x00\x0bW\xff\xfe'x<\x01\x00\x00\x03\x00\x12K\x00\x18\xed%\x0c\x01" length=None fcs=None>
+2020-01-02 21:27:52 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=3 subsystem=5 command_id=33 data=b'\x00' length=1 fcs=69>
+2020-01-02 21:27:52 DEBUG (MainThread) [zigpy_cc.api] --> SRSP ZDO bindReq tsn: None {'status': 0}
+2020-01-02 21:27:53 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=2 subsystem=5 command_id=161 data=b'\x80.\x84' length=3 fcs=205>
+2020-01-02 21:27:53 DEBUG (MainThread) [zigpy_cc.api] --> AREQ ZDO bindRsp tsn: None {'srcaddr': 0x2e80, 'status': 132}
+2020-01-02 21:27:53 INFO (MainThread) [zigpy_cc.zigbee.application] REPLY for 41 bindRsp
+2020-01-02 21:27:53 INFO (MainThread) [zigpy_cc.zigbee.application] handle_message bindRsp
+2020-01-02 21:27:53 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x0000]: bound 'basic' cluster: Status.NOT_SUPPORTED
+2020-01-02 21:27:53 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x0000]: finished channel configuration
+2020-01-02 21:27:53 DEBUG (MainThread) [zigpy.device] [0x2e80] Extending timeout for 0x2b request
+2020-01-02 21:27:53 DEBUG (MainThread) [zigpy_cc.zigbee.application] Sending Zigbee request with tsn 43 under 44 request id, data: b'\x00+\x00\x07\x00'
+2020-01-02 21:27:53 DEBUG (MainThread) [zigpy_cc.api] <-- SREQ AF dataRequest tsn: 43 {'dstaddr': 11904, 'destendpoint': 1, 'srcendpoint': 1, 'clusterid': 0, 'transid': 44, 'options': 0, 'radius': 30, 'len': 5, 'data': b'\x00+\x00\x07\x00'}
+2020-01-02 21:27:53 DEBUG (MainThread) [zigpy_cc.uart] Send: <UnpiFrame type=CommandType.SREQ subsystem=Subsystem.AF command_id=1 data=b'\x80.\x01\x01\x00\x00,\x00\x1e\x05\x00+\x00\x07\x00' length=None fcs=None>
+2020-01-02 21:27:53 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=3 subsystem=4 command_id=1 data=b'\x00' length=1 fcs=100>
+2020-01-02 21:27:53 DEBUG (MainThread) [zigpy_cc.api] --> SRSP AF dataRequest tsn: None {'status': 0}
+2020-01-02 21:27:54 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=2 subsystem=5 command_id=161 data=b'\x80.\x84' length=3 fcs=205>
+2020-01-02 21:27:54 DEBUG (MainThread) [zigpy_cc.api] --> AREQ ZDO bindRsp tsn: None {'srcaddr': 0x2e80, 'status': 132}
+2020-01-02 21:27:54 WARNING (MainThread) [zigpy_cc.zigbee.application] missing tsn from bindRsp, maybe not a reply
+2020-01-02 21:27:54 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=2 subsystem=4 command_id=128 data=b'\xf0\x01,' length=3 fcs=26>
+2020-01-02 21:27:54 DEBUG (MainThread) [zigpy_cc.api] --> AREQ AF dataConfirm tsn: None {'status': 240, 'endpoint': 1, 'transid': 44}
+2020-01-02 21:27:54 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=2 subsystem=5 command_id=161 data=b'\x80.\x84' length=3 fcs=205>
+2020-01-02 21:27:54 DEBUG (MainThread) [zigpy_cc.api] --> AREQ ZDO bindRsp tsn: None {'srcaddr': 0x2e80, 'status': 132}
+2020-01-02 21:27:54 WARNING (MainThread) [zigpy_cc.zigbee.application] missing tsn from bindRsp, maybe not a reply
+2020-01-02 21:27:56 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=2 subsystem=5 command_id=161 data=b'\x80.\x84' length=3 fcs=205>
+2020-01-02 21:27:56 DEBUG (MainThread) [zigpy_cc.api] --> AREQ ZDO bindRsp tsn: None {'srcaddr': 0x2e80, 'status': 132}
+2020-01-02 21:27:56 WARNING (MainThread) [zigpy_cc.zigbee.application] missing tsn from bindRsp, maybe not a reply
+2020-01-02 21:28:02 DEBUG (SyncWorker_14) [homeassistant.helpers.storage] Writing data for core.device_registry
+2020-01-02 21:28:11 DEBUG (MainThread) [zigpy_cc.uart] Frame received: <UnpiFrame type=2 subsystem=4 command_id=129 data=b'\x0c\xc0\n\x00\xc3\x19\x01\x01\x00"\x00C\x03\x04\x00\x00\x07\x1c_\x11\xc7\x00\x00\x00\xc3\x19\x1d' length=27 fcs=241>
+2020-01-02 21:28:11 DEBUG (MainThread) [zigpy_cc.api] --> AREQ AF incomingMsg tsn: None {'groupid': 49164, 'clusterid': 10, 'srcaddr': 0x19c3, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 34, 'securityuse': 0, 'timestamp': 262979, 'transseqnumber': 0, 'len': 7, 'data': b'\x1c_\x11\xc7\x00\x00\x00'}
+2020-01-02 21:28:11 DEBUG (MainThread) [zigpy_cc.zigbee.application] Received frame from unknown device: 0x19c3
+2020-01-02 21:28:19 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x0001]: Failed to bind 'power' cluster:
+2020-01-02 21:28:19 DEBUG (MainThread) [zigpy.device] [0x2e80] Extending timeout for 0x2d request
+2020-01-02 21:28:19 DEBUG (MainThread) [zigpy_cc.zigbee.application] Sending Zigbee request with tsn 45 under 46 request id, data: b'\x00-\x06\x00 \x00 \x10\x0e0*\x01'
+2020-01-02 21:28:19 DEBUG (MainThread) [zigpy_cc.api] <-- SREQ AF dataRequest tsn: 45 {'dstaddr': 11904, 'destendpoint': 1, 'srcendpoint': 1, 'clusterid': 0, 'transid': 46, 'options': 0, 'radius': 30, 'len': 12, 'data': b'\x00-\x06\x00 \x00 \x10\x0e0*\x01'}
+2020-01-02 21:28:19 DEBUG (MainThread) [zigpy_cc.uart] Send: <UnpiFrame type=CommandType.SREQ subsystem=Subsystem.AF command_id=1 data=b'\x80.\x01\x01\x00\x00.\x00\x1e\x0c\x00-\x06\x00 \x00 \x10\x0e0*\x01' length=None fcs=None>
+2020-01-02 21:28:19 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x1000]: Failed to bind 'lightlink' cluster:
+2020-01-02 21:28:19 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x1000]: finished channel configuration
+2020-01-02 21:28:19 DEBUG (MainThread) [homeassistant.components.zha.core.channels] [0x2e80:1:0x1000]: channel: 'async_configure' stage succeeded

@@ -1,3 +1,4 @@
+# flake8: noqa: E501
 import asyncio
 from unittest import mock
 
@@ -52,7 +53,7 @@ def addr_nwk_and_ieee(nwk, ieee):
     return addr
 
 
-'''
+"""
 DEBUG:zigpy_cc.api:--> AREQ ZDO leaveInd {'srcaddr': 406, 'extaddr': '0x07a3c302008d1500', 'request': 0, 'removechildren': 0, 'rejoin': 0}
 DEBUG:zigpy_cc.api:--> AREQ ZDO tcDeviceInd {'nwkaddr': 11938, 'extaddr': '0x07a3c302008d1500', 'parentaddr': 0}
 DEBUG:zigpy_cc.api:--> AREQ ZDO endDeviceAnnceInd {'srcaddr': 11938, 'nwkaddr': 11938, 'ieeeaddr': '0x07a3c302008d1500', 'capabilities': 128}
@@ -82,24 +83,35 @@ DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 10, 'srca
 DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 49164, 'relaycount': 2, 'relaylist': [6595, 30485]}
 DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 10, 'srcaddr': 49164, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 57, 'securityuse': 0, 'timestamp': 1504140, 'transseqnumber': 0, 'len': 5, 'data': bytearray(b'\x10\x15\x00\x00\x00')}
 DEBUG:zigpy_cc.api:--> AREQ ZDO tcDeviceInd {'nwkaddr': 49164, 'extaddr': '0x7ceb2303008d1500', 'parentaddr': 6595}
-'''
+"""
 
 
 def test_join(app):
-    payload = {'nwkaddr': 27441, 'extaddr': '0x07a3c302008d1500', 'parentaddr': 0}
-    obj = ZpiObject(2, 5, 'tcDeviceInd', 202, payload, [])
+    payload = {"nwkaddr": 27441, "extaddr": "0x07a3c302008d1500", "parentaddr": 0}
+    obj = ZpiObject(2, 5, "tcDeviceInd", 202, payload, [])
     app.handle_znp(obj)
 
     print(app.devices)
 
-    payload = {'groupid': 0, 'clusterid': 6, 'srcaddr': 27441, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0,
-               'linkquality': 136, 'securityuse': 0, 'timestamp': 15458350, 'transseqnumber': 0, 'len': 7,
-               'data': bytearray(b'\x18\x0c\n\x00\x00\x10\x00')}
-    obj = ZpiObject(2, 4, 'incomingMsg', 129, payload, [])
+    payload = {
+        "groupid": 0,
+        "clusterid": 6,
+        "srcaddr": 27441,
+        "srcendpoint": 1,
+        "dstendpoint": 1,
+        "wasbroadcast": 0,
+        "linkquality": 136,
+        "securityuse": 0,
+        "timestamp": 15458350,
+        "transseqnumber": 0,
+        "len": 7,
+        "data": bytearray(b"\x18\x0c\n\x00\x00\x10\x00"),
+    }
+    obj = ZpiObject(2, 4, "incomingMsg", 129, payload, [])
     app.handle_znp(obj)
 
 
-'''
+"""
 DEBUG:zigpy_cc.api:--> AREQ ZDO tcDeviceInd {'nwkaddr': 19542, 'extaddr': '0x07a3c302008d1500', 'parentaddr': 0}
 INFO:zigpy_cc.zigbee.application:New device joined: 0x4c56, 32:30:33:63:33:61:37:30
 INFO:zigpy.application:Device 0x4c56 (32:30:33:63:33:61:37:30) joined the network
@@ -144,16 +156,20 @@ Tries remaining: 3
 DEBUG:zigpy.device:[0xc00c] Extending timeout for 0x0b request
 DEBUG:zigpy_cc.zigbee.application:Sending Zigbee request with tsn 11 under 12 request id, data: b'0b0cc0'
 ERROR:zigpy.device:Failed ZDO request during device initialization: 'API' object has no attribute 'aps_data_request'
-'''
+"""
 
 
 async def device_annce(app: application.ControllerApplication):
     # payload = {'nwkaddr': 27441, 'extaddr': '0x07a3c302008d1500', 'parentaddr': 0}
     # obj = ZpiObject(2, 5, 'tcDeviceInd', 202, payload, [])
 
-    payload = {'srcaddr': 53322, 'nwkaddr': 53322, 'ieeeaddr': 0x41e54b02008d1500.to_bytes(8, 'little'),
-               'capabilities': 132}
-    obj = ZpiObject(2, 5, 'endDeviceAnnceInd', 193, payload, [])
+    payload = {
+        "srcaddr": 53322,
+        "nwkaddr": 53322,
+        "ieeeaddr": 0x41E54B02008D1500 .to_bytes(8, "little"),
+        "capabilities": 132,
+    }
+    obj = ZpiObject(2, 5, "endDeviceAnnceInd", 193, payload, [])
 
     app.handle_znp(obj)
 
@@ -168,24 +184,18 @@ async def test_request(app: application.ControllerApplication):
     app._api.request_raw = mock.MagicMock(return_value=fut)
 
     res = await app.request(
-        device,
-        0,
-        zdo_t.ZDOCmd.Node_Desc_req,
-        0,
-        0,
-        1,
-        b'\x01\xa2\x2e'
+        device, 0, zdo_t.ZDOCmd.Node_Desc_req, 0, 0, 1, b"\x01\xa2\x2e"
     )
 
     assert len(app._api._waiters) == 1
     assert res == (0, "message send success")
 
 
-'''
+"""
 zigpy_cc.api DEBUG <-- SREQ ZDO nodeDescReq {'dstaddr': 53322, 'nwkaddrofinterest': 0}
 zigpy_cc.api DEBUG --> SRSP ZDO nodeDescReq {'status': 0}
 zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128, 'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0, 'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 0, 'maxbuffersize': 0, 'maxintransfersize': 0, 'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
-'''
+"""
 
 
 @pytest.mark.asyncio
@@ -194,26 +204,35 @@ async def test_get_node_descriptor(app: application.ControllerApplication):
     device = app.get_device(nwk=53322)
 
     fut = asyncio.Future()
-    fut.set_result([0, 'message send success'])
+    fut.set_result([0, "message send success"])
     app._api.request_raw = mock.MagicMock(return_value=fut)
 
-    payload = {'srcaddr': 53322, 'status': 0, 'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0,
-               'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 1234, 'maxbuffersize': 0,
-               'maxintransfersize': 0, 'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
-    obj = ZpiObject.from_command(2, 5, 'nodeDescRsp', payload)
+    payload = {
+        "srcaddr": 53322,
+        "status": 0,
+        "nwkaddr": 0,
+        "logicaltype_cmplxdescavai_userdescavai": 0,
+        "apsflags_freqband": 0,
+        "maccapflags": 0,
+        "manufacturercode": 1234,
+        "maxbuffersize": 0,
+        "maxintransfersize": 0,
+        "servermask": 0,
+        "maxouttransfersize": 0,
+        "descriptorcap": 0,
+    }
+    obj = ZpiObject.from_command(5, "nodeDescRsp", payload)
     frame = obj.to_unpi_frame()
 
     async def nested():
         await asyncio.sleep(0)
         app._api.data_received(frame)
 
-    await asyncio.wait([
-        device.get_node_descriptor(),
-        nested(),
-    ], timeout=0.2)
+    await asyncio.wait([device.get_node_descriptor(), nested(),], timeout=0.2)
 
     assert isinstance(device.node_desc, zdo_t.NodeDescriptor)
-    assert device.node_desc.manufacturer_code == 1234
+    assert 1234 == device.node_desc.manufacturer_code
+
 
 @pytest.mark.asyncio
 async def test_read_attributes(app: application.ControllerApplication):

@@ -4,7 +4,7 @@ import logging
 import serial
 import serial_asyncio
 
-from zigpy_cc.types import Repr
+import zigpy_cc.types as t
 
 LOGGER = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ MaxDataSize = 250
 
 class Parser:
     def __init__(self) -> None:
-        self.buffer = b''
+        self.buffer = b""
 
     def write(self, b: int):
         self.buffer += bytes([b])
@@ -40,16 +40,24 @@ class Parser:
 
                     return frame
         else:
-            LOGGER.debug('drop char')
-            self.buffer = b''
+            LOGGER.debug("drop char")
+            self.buffer = b""
 
         return None
 
 
-class UnpiFrame(Repr):
-    def __init__(self, type: int, subsystem: int, command_id: int, data: bytes, length=None, fcs=None):
-        self.type = type
-        self.subsystem = subsystem
+class UnpiFrame(t.Repr):
+    def __init__(
+        self,
+        command_type: int,
+        subsystem: int,
+        command_id: int,
+        data: bytes,
+        length=None,
+        fcs=None,
+    ):
+        self.type = t.CommandType(command_type)
+        self.subsystem = t.Subsystem(subsystem)
         self.command_id = command_id
         self.data = data
         self.length = length
@@ -58,14 +66,14 @@ class UnpiFrame(Repr):
     @classmethod
     def from_buffer(cls, length, fcs_position, buffer):
         subsystem = buffer[PositionCmd0] & 0x1F
-        type = (buffer[PositionCmd0] & 0xE0) >> 5
+        command_type = (buffer[PositionCmd0] & 0xE0) >> 5
         command_id = buffer[PositionCmd1]
         data = buffer[DataStart:fcs_position]
         fcs = buffer[fcs_position]
 
         checksum = cls.calculate_checksum(buffer[1:fcs_position])
         if checksum == fcs:
-            return cls(type, subsystem, command_id, data, length, fcs)
+            return cls(command_type, subsystem, command_id, data, length, fcs)
         else:
             LOGGER.warning(
                 "Invalid checksum: 0x%s, data: 0x%s", checksum, buffer,
@@ -93,6 +101,8 @@ class UnpiFrame(Repr):
 
 
 class Gateway(asyncio.Protocol):
+    _transport: asyncio.Transport
+
     def __init__(self, api, connected_future=None):
         self._parser = Parser()
         self._connected_future = connected_future
@@ -131,32 +141,6 @@ class Gateway(asyncio.Protocol):
 
         if not found:
             LOGGER.info("Bytes received: %s", data)
-
-        # self._buffer += data
-        # while self._buffer:
-        #     end = self._buffer.find(self.END)
-        #     if end < 0:
-        #         return None
-        #
-        #     frame = self._buffer[:end]
-        #     self._buffer = self._buffer[(end + 1) :]
-        #     frame = self._unescape(frame)
-        #
-        #     if len(frame) < 4:
-        #         continue
-        #
-        #     checksum = frame[-2:]
-        #     frame = frame[:-2]
-        #     if self._checksum(frame) != checksum:
-        #         LOGGER.warning(
-        #             "Invalid checksum: 0x%s, data: 0x%s",
-        #             binascii.hexlify(checksum).decode(),
-        #             binascii.hexlify(frame).decode(),
-        #         )
-        #         continue
-        #
-        #     LOGGER.debug("Frame received: 0x%s", binascii.hexlify(frame).decode())
-        #     self._api.data_received(frame)
 
 
 async def connect(port, baudrate, api, loop=None):
