@@ -1,11 +1,14 @@
 # flake8: noqa: E501
 from unittest import mock
 
+from zigpy.zcl.clusters.general import PowerConfiguration
+
 import zigpy_cc.types as t
 from zigpy.zcl import Cluster
-from zigpy.types import NWK
+from zigpy.types import NWK, EUI64
 from zigpy.zdo.types import ZDOCmd
 from zigpy_cc import uart
+from zigpy_cc.buffalo import Buffalo
 from zigpy_cc.zpi_object import ZpiObject
 
 
@@ -24,13 +27,14 @@ def test_incoming_msg():
     cls = Cluster.from_id(epmock, 0)
     hdr, data = cls.deserialize(b"\x18\x00\n\x05\x00B\x12lumi.sensor_switch")
     assert (
-        str(data) == "[[<Attribute attrid=5 value="
-        "<TypeValue type=CharacterString, value=lumi.sensor_switch>>]]"
+            str(data) == "[[<Attribute attrid=5 value="
+                         "<TypeValue type=CharacterString, value=lumi.sensor_switch>>]]"
     )
     assert (
-        str(hdr) == "<ZCLHeader frame_control=<FrameControl frame_type=GLOBAL_COMMAND "
-        "manufacturer_specific=False is_reply=False disable_default_response=True> "
-        "manufacturer=None tsn=0 command_id=Command.Report_Attributes>"
+            str(
+                hdr) == "<ZCLHeader frame_control=<FrameControl frame_type=GLOBAL_COMMAND "
+                        "manufacturer_specific=False is_reply=False disable_default_response=True> "
+                        "manufacturer=None tsn=0 command_id=Command.Report_Attributes>"
     )
 
 
@@ -51,9 +55,10 @@ def test_incoming_msg2():
         b"\x00\x00\x00\x00\x00!\xbdJ ]"
     )
     assert (
-        str(hdr) == "<ZCLHeader frame_control=<FrameControl frame_type=GLOBAL_COMMAND "
-        "manufacturer_specific=True is_reply=False disable_default_response=True> "
-        "manufacturer=4660 tsn=2 command_id=Command.Report_Attributes>"
+            str(
+                hdr) == "<ZCLHeader frame_control=<FrameControl frame_type=GLOBAL_COMMAND "
+                        "manufacturer_specific=True is_reply=False disable_default_response=True> "
+                        "manufacturer=4660 tsn=2 command_id=Command.Report_Attributes>"
     )
 
 
@@ -87,11 +92,11 @@ def test_from_unpi_frame2():
     obj = ZpiObject.from_unpi_frame(frame)
 
     assert (
-        "AREQ AF incomingMsg tsn: None {'groupid': 0, 'clusterid': 1, "
-        "'srcaddr': 0x6dbb, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0,"
-        " 'linkquality': 115, 'securityuse': 0, 'timestamp': 3359577, "
-        "'transseqnumber': 0, 'len': 9, "
-        "'data': b'\\x18\\x01\\x01\\x04\\x00\\x86\\x05\\x00\\x86'}" == str(obj)
+            "AREQ AF incomingMsg tsn: None {'groupid': 0, 'clusterid': 1, "
+            "'srcaddr': 0x6dbb, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0,"
+            " 'linkquality': 115, 'securityuse': 0, 'timestamp': 3359577, "
+            "'transseqnumber': 0, 'len': 9, "
+            "'data': b'\\x18\\x01\\x01\\x04\\x00\\x86\\x05\\x00\\x86'}" == str(obj)
     )
 
 
@@ -264,14 +269,13 @@ def test_from_unpi_frame3():
     obj = ZpiObject.from_command(t.Subsystem.AF, "incomingMsg", payload)
 
     assert (
-        "AREQ AF incomingMsg tsn: None {'groupid': 0, 'clusterid': 0, "
-        "'srcaddr': 44052, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, "
-        "'linkquality': 78, 'securityuse': 0, 'timestamp': 2206697, "
-        "'transseqnumber': 0, 'len': 55, "
-        "'data': b'\\x18\\x02\\x01\\x05\\x00\\x00B\\x17TRADFRI wireless dimmer"
-        "\\x04\\x00\\x00B\\x0eIKEA of Sweden\\x07\\x00\\x000\\x03'}" == str(obj)
+            "AREQ AF incomingMsg tsn: None {'groupid': 0, 'clusterid': 0, "
+            "'srcaddr': 44052, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, "
+            "'linkquality': 78, 'securityuse': 0, 'timestamp': 2206697, "
+            "'transseqnumber': 0, 'len': 55, "
+            "'data': b'\\x18\\x02\\x01\\x05\\x00\\x00B\\x17TRADFRI wireless dimmer"
+            "\\x04\\x00\\x00B\\x0eIKEA of Sweden\\x07\\x00\\x000\\x03'}" == str(obj)
     )
-    # assert False
 
 
 def test_ieee_addr():
@@ -281,7 +285,7 @@ def test_ieee_addr():
     obj = ZpiObject.from_unpi_frame(frame)
 
     out = obj.to_unpi_frame()
-    assert out.data == b"\x00\x00\x12K\x00\x18\xed%\x0c\x00\x00\x07\t\x02J\xd0]\x97"
+    assert b"\x00\x0c%\xed\x18\x00K\x12\x00\x00\x00\x07\t\x02J\xd0]\x97" == out.data
 
 
 """
@@ -305,8 +309,8 @@ def test_from_cluster_id():
     )
 
     assert (
-        "SREQ ZDO nodeDescReq tsn: 0 {'dstaddr': 0xd04a, 'nwkaddrofinterest': 0xd04a}"
-        == str(obj)
+            "SREQ ZDO nodeDescReq tsn: 0 {'dstaddr': 0xd04a, 'nwkaddrofinterest': 0xd04a}"
+            == str(obj)
     )
 
 
@@ -327,7 +331,85 @@ def test_from_cluster_id_ZCL():
     )
 
     assert (
-        "SREQ AF dataRequest tsn: 1 {'dstaddr': 53322, 'destendpoint': 1, "
-        "'srcendpoint': 1, 'clusterid': 0, 'transid': 123, 'options': 0, 'radius': 30, "
-        "'len': 7, 'data': b'\\x00\\x0b\\x00\\x04\\x00\\x05\\x00'}" == str(obj)
+            "SREQ AF dataRequest tsn: 1 {'dstaddr': 53322, 'destendpoint': 1, "
+            "'srcendpoint': 1, 'clusterid': 0, 'transid': 123, 'options': 0, 'radius': 30, "
+            "'len': 7, 'data': b'\\x00\\x0b\\x00\\x04\\x00\\x05\\x00'}" == str(obj)
+    )
+
+
+def test_deser():
+    endp = mock.MagicMock()
+    power_configuration = PowerConfiguration(endp)
+    data = bytes([16, 5, 6, 0, 33, 0, 32, 16, 14, 48, 242, 0])
+    hdr, value = power_configuration.deserialize(data)
+
+    assert (
+            "<ZCLHeader "
+            "frame_control=<FrameControl frame_type=GLOBAL_COMMAND manufacturer_specific=False is_reply=False disable_default_response=True> "
+            "manufacturer=None "
+            "tsn=5 "
+            "command_id=Command.Configure_Reporting>" == str(hdr)
+    )
+    assert 1 == len(value)
+    assert (
+            {'direction': False, 'attrid': 33, 'datatype': 32, 'min_interval': 3600,
+             'max_interval': 62000, 'reportable_change': 0} == value[0][0].__dict__
+    )
+
+
+def test_bind_req():
+    data = b"*<x'\xfe\xffW\x0b\x00\x01\x08\x00\x03\x0c%\xed\x18\x00K\x12\x00\x01"
+
+    obj = ZpiObject.from_cluster(
+        NWK(0x6292), 0, 0x0021, 0, 0, 42, data, 123
+    )
+
+    assert (
+            "SREQ ZDO bindReq tsn: 42 {"
+            "'dstaddr': 0x6292, "
+            "'srcaddr': 00:0b:57:ff:fe:27:78:3c, "
+            "'srcendpoint': 1, "
+            "'clusterid': 8, "
+            "'dstaddrmode': 3, "
+            "'dstaddress': 00:12:4b:00:18:ed:25:0c, "
+            "'dstendpoint': 1}" == str(obj)
+    )
+    assert (
+            bytes([254,23,37,33,146,98,60,120,39,254,255,87,11,0,1,8,0,3,12,37,237,24,0,75,18,0,1,83])
+            == obj.to_unpi_frame().to_buffer()
+    )
+
+def test_buffalo_ieee():
+    data_out = Buffalo(b"")
+
+    addr = EUI64(b'\x00\x0b\x57\xff\xfe\x27\x78\x3c')
+    data_out.write_parameter(t.ParameterType.IEEEADDR, addr, {})
+
+    data_in = Buffalo(data_out.buffer)
+    actual = data_in.read_parameter(t.ParameterType.IEEEADDR, {})
+
+    assert addr == actual
+
+def test_bind_req_serialize():
+    payload = {"dstaddr": NWK(25234),
+               "srcaddr": EUI64(reversed(b'\x00\x0b\x57\xff\xfe\x27\x78\x3c')),
+               "srcendpoint": 1,
+               "clusterid": 8,
+               "dstaddrmode": 3,
+               "dstaddress": EUI64(reversed(b'\x00\x12\x4b\x00\x18\xed\x25\x0c')),
+               "dstendpoint": 1}
+    obj = ZpiObject.from_command(t.Subsystem.ZDO, 'bindReq', payload)
+    assert (
+            "SREQ ZDO bindReq tsn: None {"
+            "'dstaddr': 0x6292, "
+            "'srcaddr': 00:0b:57:ff:fe:27:78:3c, "
+            "'srcendpoint': 1, "
+            "'clusterid': 8, "
+            "'dstaddrmode': 3, "
+            "'dstaddress': 00:12:4b:00:18:ed:25:0c, "
+            "'dstendpoint': 1}" == str(obj)
+    )
+    assert (
+            bytes([254,23,37,33,146,98,60,120,39,254,255,87,11,0,1,8,0,3,12,37,237,24,0,75,18,0,1,83])
+            == obj.to_unpi_frame().to_buffer()
     )

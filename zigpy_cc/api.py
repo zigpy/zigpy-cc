@@ -93,7 +93,7 @@ class API:
         """
         TODO add queue
         """
-        LOGGER.debug("<-- %s", obj)
+        LOGGER.debug("--> %s", obj)
         frame = obj.to_unpi_frame()
 
         if obj.type == CommandType.SREQ:
@@ -168,16 +168,18 @@ class API:
 
     def data_received(self, frame):
         obj = ZpiObject.from_unpi_frame(frame)
-        LOGGER.debug("--> %s", obj)
 
         to_remove = []
         for waiter in self._waiters:
             if waiter.match(obj):
+                # LOGGER.debug("MATCH FOUND %s", waiter)
                 to_remove.append(waiter)
                 waiter.set_result(obj)
                 if waiter.sequence:
                     obj.sequence = waiter.sequence
                     break
+
+        LOGGER.debug("<-- %s", obj)
 
         for waiter in to_remove:
             self._waiters.remove(waiter)

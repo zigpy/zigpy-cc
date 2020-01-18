@@ -27,7 +27,7 @@ class Buffalo:
         elif type == ParameterType.UINT32:
             self.write(value, 4)
         elif type == ParameterType.IEEEADDR:
-            for i in reversed(value):
+            for i in value:
                 self.write(i)
         elif type == ParameterType.BUFFER:
             self.buffer += value

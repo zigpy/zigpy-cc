@@ -5,6 +5,8 @@ import os
 import coloredlogs as coloredlogs
 from serial import SerialException
 
+from zigpy.device import Device
+
 from zigpy_cc.api import API
 from zigpy_cc.zigbee import application
 
@@ -14,8 +16,34 @@ coloredlogs.install(level="DEBUG", fmt=fmt)
 LOGGER = logging.getLogger(__name__)
 
 # logging.basicConfig(level=logging.DEBUG)
-# logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
+logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
 # logging.getLogger('zigpy_cc.api').setLevel(logging.INFO)
+
+loop = asyncio.get_event_loop()
+
+class TestApp:
+
+    def device_joined(self, app, device: Device):
+
+        async def init_dev():
+            endp = device.endpoints[1]
+            LOGGER.info('in_clusters %s', endp.in_clusters)
+            LOGGER.info('out_clusters %s', endp.out_clusters)
+
+            await asyncio.sleep(2)
+
+            res = await device.zdo.bind(endp.out_clusters[8])
+            LOGGER.warning(res)
+            res = await device.zdo.bind(endp.out_clusters[3])
+            LOGGER.warning(res)
+            res = await device.zdo.bind(endp.in_clusters[1])
+            LOGGER.warning(res)
+
+            # power_cluster: PowerConfiguration = endp.in_clusters[1]
+            # res = await power_cluster.configure_reporting('battery_percentage_remaining', 3600, 62000, 0)
+            # LOGGER.warning(res)
+
+        loop.create_task(init_dev())
 
 
 async def main():
@@ -40,11 +68,17 @@ async def main():
         os.remove(db)
         app = application.ControllerApplication(api, database_file=db)
 
+    testapp = TestApp()
+
+    app.add_context_listener(testapp)
+
+    LOGGER.info('STARTUP')
     await app.startup(auto_form=False)
     await app.form_network()
 
+    await app.permit_ncp()
 
-loop = asyncio.get_event_loop()
+
 loop.run_until_complete(main())
 loop.run_forever()
 loop.close()

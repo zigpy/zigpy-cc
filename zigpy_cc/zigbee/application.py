@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import zigpy.application
@@ -25,19 +26,21 @@ REQUESTS = {
     "matchDescReq": (ZDOCmd.Match_Desc_req, 2),
     "endDeviceAnnceInd": (ZDOCmd.Device_annce, 2),
     "mgmtPermitJoinReq": (ZDOCmd.Mgmt_Permit_Joining_req, 3),
+    "mgmtPermitJoinRsp": (ZDOCmd.Mgmt_Permit_Joining_rsp, 2),
     "nodeDescRsp": (ZDOCmd.Node_Desc_rsp, 2),
     "activeEpRsp": (ZDOCmd.Active_EP_rsp, 2),
     "simpleDescRsp": (ZDOCmd.Simple_Desc_rsp, 2),
     "bindRsp": (ZDOCmd.Bind_rsp, 2),
-    "mgmtPermitJoinRsp": (ZDOCmd.Mgmt_Permit_Joining_rsp, 2),
 }
 
 IGNORED = (
-    "leaveInd",
-    "tcDeviceInd",
-    "stateChangeInd",
+    # "activeEpRsp",
     "dataConfirm",
-    "permitJoinInd",
+    "leaveInd",
+    # "mgmtPermitJoinRsp",
+    "srcRtgInd",
+    "stateChangeInd",
+    "tcDeviceInd",
 )
 
 
@@ -276,6 +279,13 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         # TODO bindRsp
 
         if obj.command in IGNORED:
+            return
+
+        elif obj.subsystem == t.Subsystem.ZDO and obj.command == 'permitJoinInd':
+            if obj.payload['duration'] == 0:
+                loop = asyncio.get_event_loop()
+                loop.create_task(self.permit_ncp())
+
             return
 
         elif obj.subsystem == t.Subsystem.ZDO and obj.command in REQUESTS:
