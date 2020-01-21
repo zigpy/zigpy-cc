@@ -74,3 +74,7 @@ ENV/
 
 # debug logs
 *.log
+
+# macOS stuff
+.DS_Store
+._.DS_Store
