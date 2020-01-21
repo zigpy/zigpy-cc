@@ -6,6 +6,7 @@ from zigpy.zcl.clusters.security import IasZone
 from zigpy_cc.api import API
 from zigpy_cc.const import Constants
 from zigpy_cc.types import NetworkOptions, Subsystem, ZnpVersion, CommandType
+from zigpy_cc.exception import CommandError
 from zigpy_cc.zigbee.backup import Restore
 from zigpy_cc.zigbee.common import Common
 from zigpy_cc.zigbee.utils import getChannelMask
@@ -203,7 +204,7 @@ async def start_znp(znp: API, version, options: NetworkOptions, backupPath=""):
     try:
         await validate_item(znp, Items.znpHasConfigured(version), "hasConfigured")
         hasConfigured = True
-    except AssertionError:
+    except (AssertionError, CommandError):
         hasConfigured = False
 
     if backupPath and os.path.exists(backupPath) and not hasConfigured:
