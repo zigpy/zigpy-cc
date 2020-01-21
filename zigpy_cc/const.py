@@ -1,4 +1,6 @@
-class ResetType:
+import enum
+
+class ResetType(enum.IntEnum):
     HARD = 0
     SOFT = 1
 
@@ -7,7 +9,7 @@ class System:
     resetType = ResetType
 
 
-class DeviceLogicalType:
+class DeviceLogicalType(enum.IntEnum):
     COORDINATOR = 0
     ROUTER = 1
     ENDDEVICE = 2
@@ -23,7 +25,7 @@ class ZDO:
     deviceLogicalType = DeviceLogicalType
 
 
-class networkLatencyReq:
+class networkLatencyReq(enum.IntEnum):
     NO_LATENCY_REQS = 0
     FAST_BEACONS = 1
     SLOW_BEACONS = 2
