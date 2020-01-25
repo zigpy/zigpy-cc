@@ -16,7 +16,7 @@ coloredlogs.install(level="DEBUG", fmt=fmt)
 LOGGER = logging.getLogger(__name__)
 
 # logging.basicConfig(level=logging.DEBUG)
-logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
+# logging.getLogger('zigpy_cc.uart').setLevel(logging.INFO)
 # logging.getLogger('zigpy_cc.api').setLevel(logging.INFO)
 
 loop = asyncio.get_event_loop()
@@ -32,9 +32,9 @@ class TestApp:
 
             await asyncio.sleep(2)
 
-            res = await device.zdo.bind(endp.out_clusters[8])
-            LOGGER.warning(res)
-            res = await device.zdo.bind(endp.out_clusters[3])
+            # res = await device.zdo.bind(endp.out_clusters[8])
+            # LOGGER.warning(res)
+            res = await device.zdo.bind(endp.out_clusters[6])
             LOGGER.warning(res)
             res = await device.zdo.bind(endp.in_clusters[1])
             LOGGER.warning(res)

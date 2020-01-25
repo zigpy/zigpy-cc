@@ -83,12 +83,12 @@ class ZpiObject:
     def from_cluster(
         cls, nwk, profile, cluster, src_ep, dst_ep, sequence, data, req_id, *, radius=30
     ):
-        subsystem = Subsystem.ZDO
         if profile == zha.PROFILE_ID:
             subsystem = Subsystem.AF
-            cluster = 1
-
-        cmd = next(c for c in Definition[subsystem] if c["ID"] == cluster)
+            cmd = next(c for c in Definition[subsystem] if c["ID"] == 1)
+        else:
+            subsystem = Subsystem.ZDO
+            cmd = next(c for c in Definition[subsystem] if c["ID"] == cluster)
         name = cmd["name"]
         parameters = (
             cmd["response"] if cmd["type"] == CommandType.SRSP else cmd["request"]
@@ -99,7 +99,7 @@ class ZpiObject:
                 "dstaddr": int(nwk),
                 "destendpoint": dst_ep,
                 "srcendpoint": src_ep,
-                "clusterid": 0,
+                "clusterid": cluster,
                 "transid": req_id,
                 "options": 0,
                 "radius": radius,
@@ -111,6 +111,8 @@ class ZpiObject:
                 bytes([0x0F]) + nwk.to_bytes(2, "little") + data[1:], parameters
             )
         else:
+            # TODO
+            # assert sequence == data[0]
             payload = cls.read_parameters(
                 nwk.to_bytes(2, "little") + data[1:], parameters
             )
