@@ -49,7 +49,7 @@ class Waiter(Repr):
         if matcher.payload:
             for f, v in matcher.payload.items():
                 if v != obj.payload[f]:
-                    LOGGER.warning(
+                    LOGGER.debug(
                         "payload missmatch\n-%s\n+%s", matcher.payload, obj.payload
                     )
                     return False
@@ -115,6 +115,18 @@ class API:
                     ),
                 )
             else:
+                if obj.type == CommandType.SREQ and obj.command == "dataRequest":
+                    payload = {
+                        "endpoint": obj.payload["destendpoint"],
+                        "transid": obj.payload['transid'],
+                    }
+                    waiter = self.wait_for(
+                        CommandType.AREQ, Subsystem.AF, "dataConfirm", payload,
+                    )
+                    LOGGER.warning('waiting for dataConfirm')
+                    result = await waiter.wait()
+                    LOGGER.warning('res %s', result)
+
                 return result
         elif obj.type == CommandType.AREQ and obj.is_reset_command():
             waiter = self.wait_for(

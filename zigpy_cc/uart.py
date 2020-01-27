@@ -124,8 +124,8 @@ class Gateway(asyncio.Protocol):
 
     def send(self, frame: UnpiFrame):
         """Send data, taking care of escaping and framing"""
-        LOGGER.debug("Send: %s", frame)
         data = frame.to_buffer()
+        LOGGER.debug("Send: %s", data)
         self._transport.write(data)
 
     def data_received(self, data):

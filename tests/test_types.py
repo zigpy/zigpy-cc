@@ -8,8 +8,10 @@ from zigpy.zcl import Cluster
 from zigpy.types import NWK, EUI64
 from zigpy.zdo.types import ZDOCmd
 from zigpy_cc import uart
-from zigpy_cc.buffalo import Buffalo
 from zigpy_cc.zpi_object import ZpiObject
+
+DIMMER = '0x000b57fffe27783c'
+COORDINATOR = '0x00124b0018ed250c'
 
 
 def test_incoming_msg():
@@ -305,11 +307,11 @@ zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128, 'n
 def test_from_cluster_id():
     profile = 0
     obj = ZpiObject.from_cluster(
-        NWK(53322), profile, ZDOCmd.Node_Desc_req, 0, 0, 0, b"\x03\x4a\xd0", 32
+        NWK(53322), profile, ZDOCmd.Node_Desc_req, 0, 0, 3, b"\x03\x4a\xd0", 32
     )
 
     assert (
-            "SREQ ZDO nodeDescReq tsn: 0 {'dstaddr': 0xd04a, 'nwkaddrofinterest': 0xd04a}"
+            "SREQ ZDO nodeDescReq tsn: 3 {'dstaddr': 0xd04a, 'nwkaddrofinterest': 0xd04a}"
             == str(obj)
     )
 
@@ -358,14 +360,26 @@ def test_deser():
 
 
 def test_bind_req():
-    data = b"*<x'\xfe\xffW\x0b\x00\x01\x08\x00\x03\x0c%\xed\x18\x00K\x12\x00\x01"
+    '''
+    zigpy_cc.zigbee.application DEBUG request (
+        0xbd8b, 0, <ZDOCmd.Bind_req: 0x0021>, 0, 0, 1,
+        b"\x01<x'\xfe\xffW\x0b\x00\x01\x08\x00\x03\x0c%\xed\x18\x00K\x12\x00\x01", True, False)
+    zigpy_cc.api DEBUG waiting for 1 bindReq
+    zigpy_cc.api DEBUG --> SREQ ZDO bindReq tsn: 1 {
+        'dstaddr': 0xbd8b, 'srcaddr': 00:0b:57:ff:fe:27:78:3c, 'srcendpoint': 1, 'clusterid': 8, 'dstaddrmode': 3, 'dstaddress': 00:12:4b:00:18:ed:25:0c, 'dstendpoint': 1}
+    zigpy_cc.uart DEBUG Send:
+        b"\xfe\x17%!\x8b\xbd<x'\xfe\xffW\x0b\x00\x01\x08\x00\x03\x0c%\xed\x18\x00K\x12\x00\x01\x95"
+
+    '''
+
+    data = b"\x02<x'\xfe\xffW\x0b\x00\x01\x08\x00\x03\x0c%\xed\x18\x00K\x12\x00\x01"
 
     obj = ZpiObject.from_cluster(
-        NWK(0x6292), 0, 0x0021, 0, 0, 42, data, 123
+        NWK(0x6292), 0, 0x0021, 0, 0, 2, data, 123
     )
 
     assert (
-            "SREQ ZDO bindReq tsn: 42 {"
+            "SREQ ZDO bindReq tsn: 2 {"
             "'dstaddr': 0x6292, "
             "'srcaddr': 00:0b:57:ff:fe:27:78:3c, "
             "'srcendpoint': 1, "
@@ -375,20 +389,12 @@ def test_bind_req():
             "'dstendpoint': 1}" == str(obj)
     )
     assert (
-            bytes([254,23,37,33,146,98,60,120,39,254,255,87,11,0,1,8,0,3,12,37,237,24,0,75,18,0,1,83])
+            bytes(
+                [254, 23, 37, 33, 146, 98, 60, 120, 39, 254, 255, 87, 11, 0, 1, 8, 0, 3,
+                 12, 37, 237, 24, 0, 75, 18, 0, 1, 83])
             == obj.to_unpi_frame().to_buffer()
     )
 
-def test_buffalo_ieee():
-    data_out = Buffalo(b"")
-
-    addr = EUI64(b'\x00\x0b\x57\xff\xfe\x27\x78\x3c')
-    data_out.write_parameter(t.ParameterType.IEEEADDR, addr, {})
-
-    data_in = Buffalo(data_out.buffer)
-    actual = data_in.read_parameter(t.ParameterType.IEEEADDR, {})
-
-    assert addr == actual
 
 def test_bind_req_serialize():
     payload = {"dstaddr": NWK(25234),
@@ -410,6 +416,8 @@ def test_bind_req_serialize():
             "'dstendpoint': 1}" == str(obj)
     )
     assert (
-            bytes([254,23,37,33,146,98,60,120,39,254,255,87,11,0,1,8,0,3,12,37,237,24,0,75,18,0,1,83])
+            bytes(
+                [254, 23, 37, 33, 146, 98, 60, 120, 39, 254, 255, 87, 11, 0, 1, 8, 0, 3,
+                 12, 37, 237, 24, 0, 75, 18, 0, 1, 83])
             == obj.to_unpi_frame().to_buffer()
     )

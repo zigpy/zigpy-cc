@@ -279,21 +279,21 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         # TODO bindRsp
 
         if obj.command in IGNORED:
+            LOGGER.warning('message ignored')
             return
 
-        elif obj.subsystem == t.Subsystem.ZDO and obj.command == 'permitJoinInd':
+        if obj.subsystem == t.Subsystem.ZDO and obj.command == 'permitJoinInd':
             if obj.payload['duration'] == 0:
                 loop = asyncio.get_event_loop()
                 loop.create_task(self.permit_ncp())
-
             return
 
-        elif obj.subsystem == t.Subsystem.ZDO and obj.command in REQUESTS:
+        if obj.subsystem == t.Subsystem.ZDO and obj.command in REQUESTS:
             if obj.sequence is None:
                 LOGGER.warning("missing tsn from %s, maybe not a reply", obj.command)
                 return
-            cluster_id, prefix_length = REQUESTS[obj.command]
             LOGGER.info("REPLY for %d %s", obj.sequence, obj.command)
+            cluster_id, prefix_length = REQUESTS[obj.command]
             tsn = bytes([obj.sequence])
             data = tsn + frame.data[prefix_length:]
 
@@ -319,13 +319,13 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             else:
                 device = self.get_device(nwk=nwk)
         except KeyError:
-            LOGGER.debug(
+            LOGGER.warning(
                 "Received frame from unknown device: %s", ieee if ieee else nwk
             )
             return
 
         device.radio_details(lqi, rssi)
-        if obj.subsystem == t.Subsystem.ZDO:
-            pass
+        # if obj.subsystem == t.Subsystem.ZDO:
+        #     pass
         LOGGER.info("handle_message %s", obj.command)
         self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
