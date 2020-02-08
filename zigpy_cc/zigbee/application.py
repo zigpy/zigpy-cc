@@ -279,11 +279,11 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         # TODO bindRsp
 
         if obj.command in IGNORED:
-            LOGGER.warning('message ignored')
+            LOGGER.warning("message ignored")
             return
 
-        if obj.subsystem == t.Subsystem.ZDO and obj.command == 'permitJoinInd':
-            if obj.payload['duration'] == 0:
+        if obj.subsystem == t.Subsystem.ZDO and obj.command == "permitJoinInd":
+            if obj.payload["duration"] == 0:
                 loop = asyncio.get_event_loop()
                 loop.create_task(self.permit_ncp())
             return

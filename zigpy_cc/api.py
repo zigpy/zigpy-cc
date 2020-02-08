@@ -118,14 +118,14 @@ class API:
                 if obj.type == CommandType.SREQ and obj.command == "dataRequest":
                     payload = {
                         "endpoint": obj.payload["destendpoint"],
-                        "transid": obj.payload['transid'],
+                        "transid": obj.payload["transid"],
                     }
                     waiter = self.wait_for(
                         CommandType.AREQ, Subsystem.AF, "dataConfirm", payload,
                     )
-                    LOGGER.warning('waiting for dataConfirm')
+                    LOGGER.warning("waiting for dataConfirm")
                     result = await waiter.wait()
-                    LOGGER.warning('res %s', result)
+                    LOGGER.warning("res %s", result)
 
                 return result
         elif obj.type == CommandType.AREQ and obj.is_reset_command():

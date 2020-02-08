@@ -21,14 +21,13 @@ LOGGER = logging.getLogger(__name__)
 
 loop = asyncio.get_event_loop()
 
+
 class TestApp:
-
     def device_joined(self, app, device: Device):
-
         async def init_dev():
             endp = device.endpoints[1]
-            LOGGER.info('in_clusters %s', endp.in_clusters)
-            LOGGER.info('out_clusters %s', endp.out_clusters)
+            LOGGER.info("in_clusters %s", endp.in_clusters)
+            LOGGER.info("out_clusters %s", endp.out_clusters)
 
             await asyncio.sleep(2)
 
@@ -40,7 +39,9 @@ class TestApp:
             LOGGER.warning(res)
 
             # power_cluster: PowerConfiguration = endp.in_clusters[1]
-            # res = await power_cluster.configure_reporting('battery_percentage_remaining', 3600, 62000, 0)
+            # res = await power_cluster.configure_reporting(
+            #     'battery_percentage_remaining', 3600, 62000, 0
+            # )
             # LOGGER.warning(res)
 
         loop.create_task(init_dev())
@@ -72,7 +73,7 @@ async def main():
 
     app.add_context_listener(testapp)
 
-    LOGGER.info('STARTUP')
+    LOGGER.info("STARTUP")
     await app.startup(auto_form=False)
     await app.form_network()
 

@@ -193,6 +193,7 @@ async def test_node_desc(api: zigpy_cc.api.API):
     assert fut.done()
     assert "SRSP ZDO nodeDescReq tsn: None {'status': 0}" == str(fut.result())
 
+
 #
 # @pytest.mark.parametrize(
 #     "protocol_ver, firmware_version, flags",

@@ -1,5 +1,6 @@
 import enum
 
+
 class ResetType(enum.IntEnum):
     HARD = 0
     SOFT = 1
