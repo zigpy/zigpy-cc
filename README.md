@@ -41,7 +41,7 @@ The necessary hardware and equipment for flashing firmware and the device prepar
 # Releases via PyPI
 Tagged versions will also be released via PyPI
 
-- TODO
+- https://pypi.org/project/zigpy-cc/
 
 # External documentation and reference
 
