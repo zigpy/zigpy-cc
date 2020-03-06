@@ -63,6 +63,8 @@ class API:
         self._seq = 1
         self._waiters: List[Waiter] = []
         self._app = None
+        self._device = None
+        self._baudrare = None
         self._proto_ver = None
 
     @property
@@ -75,10 +77,18 @@ class API:
 
     async def connect(self, device, baudrate=CC_BAUDRATE):
         assert self._uart is None
+        self._device = device
+        self._baudrare = baudrate
         self._uart = await uart.connect(device, baudrate, self)
+
+    async def reconnect(self):
+        self._uart = await uart.connect(self._device, self._baudrare, self)
 
     def close(self):
         return self._uart.close()
+
+    def connection_lost(self):
+        self._app.connection_lost()
 
     async def _command(self, subsystem, command, payload) -> ZpiObject:
         return await self.request(subsystem, command, payload)
@@ -179,7 +189,11 @@ class API:
         return waiter
 
     def data_received(self, frame):
-        obj = ZpiObject.from_unpi_frame(frame)
+        try:
+            obj = ZpiObject.from_unpi_frame(frame)
+        except Exception as e:
+            LOGGER.error("Error while parsing frame: %s", frame)
+            raise e
 
         to_remove = []
         for waiter in self._waiters:

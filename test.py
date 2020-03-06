@@ -54,7 +54,7 @@ async def main():
     api = API()
     while True:
         try:
-            await api.connect("/dev/ttyACM0")
+            await api.connect("auto")
             break
         except SerialException as e:
             print(e)

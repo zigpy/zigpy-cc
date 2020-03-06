@@ -69,6 +69,17 @@ class ParameterType(uint8_t, enum.Enum):
 
     INT8 = 18
 
+    def is_buffer(type):
+        return (
+            type == ParameterType.BUFFER
+            or type == ParameterType.BUFFER8
+            or type == ParameterType.BUFFER16
+            or type == ParameterType.BUFFER18
+            or type == ParameterType.BUFFER32
+            or type == ParameterType.BUFFER42
+            or type == ParameterType.BUFFER100
+        )
+
 
 class NetworkOptions:
     def __init__(self) -> None:

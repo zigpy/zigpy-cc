@@ -54,9 +54,12 @@ class Buffalo:
             res = self.read_int(4)
         elif type == ParameterType.IEEEADDR:
             res = zigpy.types.EUI64(self.read(8))
-        elif type == ParameterType.BUFFER:
-            length = options.length
+        elif ParameterType.is_buffer(type):
+            type_name = ParameterType(type).name
+            length = int(type_name.replace("BUFFER", "") or options.length)
             res = self.read(length)
+        elif type == ParameterType.INT8:
+            res = self.read_int(signed=True)
         else:
             # list types
             res = []
@@ -66,16 +69,13 @@ class Buffalo:
             elif type == ParameterType.LIST_UINT16:
                 for i in range(0, options.length):
                     res.append(self.read_int(2))
-            elif type == ParameterType.LIST_UINT32:
-                for i in range(0, options.length):
-                    res.append(self.read_int(4))
             else:
-                raise TODO("read %s", ParameterType(type))
+                raise TODO("read type %d", type)
 
         return res
 
-    def read_int(self, length=1):
-        return int.from_bytes(self.read(length), "little")
+    def read_int(self, length=1, signed=False):
+        return int.from_bytes(self.read(length), "little", signed=signed)
 
     def read(self, length=1):
         if self.position + length > self._len:

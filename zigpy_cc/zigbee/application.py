@@ -59,6 +59,21 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         """Shutdown application."""
         self._api.close()
 
+    def connection_lost(self):
+        asyncio.create_task(self.reconnect())
+
+    async def reconnect(self):
+        while True:
+            self._api.close()
+            await asyncio.sleep(5)
+            try:
+                await self._api.reconnect()
+                break
+            except Exception as e:
+                LOGGER.info("Failed to reconnect: %s", e)
+                pass
+        await self.startup(True)
+
     async def startup(self, auto_form=False):
         """Perform a complete application startup"""
         self.version = await self._api.version()

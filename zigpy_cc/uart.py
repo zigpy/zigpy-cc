@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import serial
+import serial.tools.list_ports
 import serial_asyncio
 
 import zigpy_cc.types as t
@@ -101,7 +102,7 @@ class UnpiFrame(t.Repr):
 
 
 class Gateway(asyncio.Protocol):
-    _transport: asyncio.Transport
+    _transport: serial_asyncio.SerialTransport
 
     def __init__(self, api, connected_future=None):
         self._parser = Parser()
@@ -109,9 +110,9 @@ class Gateway(asyncio.Protocol):
         self._api = api
         # self._transport = None
 
-    def connection_made(self, transport: asyncio.Transport):
+    def connection_made(self, transport: serial_asyncio.SerialTransport):
         """Callback when the uart is connected"""
-        LOGGER.debug("Connection made")
+        LOGGER.info("Connection made")
         self._transport = transport
         if self._connected_future:
             self._connected_future.set_result(True)
@@ -142,6 +143,10 @@ class Gateway(asyncio.Protocol):
         if not found:
             LOGGER.info("Bytes received: %s", data)
 
+    def connection_lost(self, exc):
+        LOGGER.error("Serial port closed unexpectedly: %s", exc)
+        self._api.connection_lost()
+
 
 async def connect(port, baudrate, api, loop=None):
     if loop is None:
@@ -149,6 +154,14 @@ async def connect(port, baudrate, api, loop=None):
 
     connected_future = loop.create_future()
     protocol = Gateway(api, connected_future)
+
+    if port == "auto":
+        devices = list(serial.tools.list_ports.grep("0451:"))
+        if devices:
+            port = devices[0].device
+            LOGGER.info("%s found at %s", devices[0].product, port)
+        else:
+            LOGGER.error("Unable to find TI CC device using auto mode")
 
     _, protocol = await serial_asyncio.create_serial_connection(
         loop,
