@@ -78,3 +78,7 @@ ENV/
 # macOS stuff
 .DS_Store
 ._.DS_Store
+
+# project specific
+*.bak
+*.db

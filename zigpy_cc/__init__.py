@@ -1,3 +1,4 @@
+# This file updated automatically before PyPI release was created
 MAJOR_VERSION = 0
 MINOR_VERSION = 2
 PATCH_VERSION = "0"
