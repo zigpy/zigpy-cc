@@ -36,9 +36,9 @@ class Waiter(Repr):
 
     def set_result(self, result) -> None:
         if self.future.cancelled():
-            LOGGER.warning('Waiter already cancelled: %s', self)
+            LOGGER.warning("Waiter already cancelled: %s", self)
         elif self.future.done():
-            LOGGER.warning('Waiter already done: %s', self)
+            LOGGER.warning("Waiter already done: %s", self)
         else:
             self.future.set_result(result)
 
