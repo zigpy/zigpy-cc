@@ -35,7 +35,12 @@ class Waiter(Repr):
         return await asyncio.wait_for(self.future, self.timeout / 1000)
 
     def set_result(self, result) -> None:
-        self.future.set_result(result)
+        if self.future.cancelled():
+            LOGGER.warning('Waiter already cancelled: %s', self)
+        elif self.future.done():
+            LOGGER.warning('Waiter already done: %s', self)
+        else:
+            self.future.set_result(result)
 
     def match(self, obj: ZpiObject):
         matcher = self.matcher

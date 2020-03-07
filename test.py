@@ -25,18 +25,24 @@ loop = asyncio.get_event_loop()
 class TestApp:
     def device_joined(self, app, device: Device):
         async def init_dev():
-            endp = device.endpoints[1]
-            LOGGER.info("in_clusters %s", endp.in_clusters)
-            LOGGER.info("out_clusters %s", endp.out_clusters)
+            LOGGER.info("endpoints %s", device.endpoints)
 
-            await asyncio.sleep(2)
+            for key, endp in device.endpoints.items():
+                LOGGER.info("endpoint %s", key)
+                if hasattr(endp, 'in_clusters'):
+                    LOGGER.info("in_clusters %s", endp.in_clusters)
+                    LOGGER.info("out_clusters %s", endp.out_clusters)
+
+                    await asyncio.sleep(2)
+                    await endp.out_clusters[8].bind()
+
 
             # res = await device.zdo.bind(endp.out_clusters[8])
             # LOGGER.warning(res)
-            res = await device.zdo.bind(endp.out_clusters[6])
-            LOGGER.warning(res)
-            res = await device.zdo.bind(endp.in_clusters[1])
-            LOGGER.warning(res)
+            #res = await device.zdo.bind(endp.out_clusters[6])
+            #LOGGER.warning(res)
+            #res = await device.zdo.bind(endp.in_clusters[1])
+            #LOGGER.warning(res)
 
             # power_cluster: PowerConfiguration = endp.in_clusters[1]
             # res = await power_cluster.configure_reporting(
