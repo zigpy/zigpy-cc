@@ -7,7 +7,7 @@ import zigpy.types
 import zigpy.util
 from zigpy.profiles import zha
 from zigpy.zdo.types import ZDOCmd
-from zigpy_cc import types as t
+from zigpy_cc import types as t, __version__
 from zigpy_cc.api import API
 from zigpy_cc.exception import CommandError, TODO
 from zigpy_cc.types import Subsystem, NetworkOptions, ZnpVersion
@@ -76,6 +76,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
     async def startup(self, auto_form=False):
         """Perform a complete application startup"""
+        LOGGER.debug("Starting zigpy-cc version: %s", __version__)
         self.version = await self._api.version()
         ver = ZnpVersion(self.version["product"]).name
         LOGGER.debug("Detected znp version '%s' (%s)", ver, self.version)
