@@ -89,7 +89,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         self._nwk = data.payload["shortaddr"]
 
         # add coordinator
-        self.handle_join(self.nwk, self.ieee, 0)
+        self.devices[self._ieee] = Coordinator(self, self._ieee, self._nwk)
 
     async def permit_with_key(self, node, code, time_s=60):
         raise TODO("permit_with_key")
@@ -295,13 +295,13 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         # TODO bindRsp
 
         if obj.command in IGNORED:
-            LOGGER.warning("message ignored")
+            LOGGER.debug("message ignored: %s", obj.command)
             return
 
         if obj.subsystem == t.Subsystem.ZDO and obj.command == "permitJoinInd":
-            if obj.payload["duration"] == 0:
-                loop = asyncio.get_event_loop()
-                loop.create_task(self.permit_ncp())
+            # if obj.payload["duration"] == 0:
+            #     loop = asyncio.get_event_loop()
+            #     loop.create_task(self.permit_ncp())
             return
 
         if obj.subsystem == t.Subsystem.ZDO and obj.command in REQUESTS:
@@ -345,3 +345,13 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         #     pass
         LOGGER.info("handle_message %s", obj.command)
         self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
+
+
+class Coordinator(zigpy.device.Device):
+    @property
+    def manufacturer(self):
+        return "Texas Instruments"
+
+    @property
+    def model(self):
+        return "ZNP Coordinator"

@@ -108,16 +108,19 @@ class Gateway(asyncio.Protocol):
         self._parser = Parser()
         self._connected_future = connected_future
         self._api = api
-        # self._transport = None
+        self._transport = None
+        self._open = False
 
     def connection_made(self, transport: serial_asyncio.SerialTransport):
         """Callback when the uart is connected"""
         LOGGER.info("Connection made")
+        self._open = True
         self._transport = transport
         if self._connected_future:
             self._connected_future.set_result(True)
 
     def close(self):
+        self._open = False
         self._transport.close()
 
     def write(self, data):
@@ -144,8 +147,9 @@ class Gateway(asyncio.Protocol):
             LOGGER.info("Bytes received: %s", data)
 
     def connection_lost(self, exc):
-        LOGGER.error("Serial port closed unexpectedly: %s", exc)
-        self._api.connection_lost()
+        if self._open:
+            LOGGER.error("Serial port closed unexpectedly: %s", exc)
+            self._api.connection_lost()
 
 
 async def connect(port, baudrate, api, loop=None):

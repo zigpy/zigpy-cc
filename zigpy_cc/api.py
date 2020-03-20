@@ -102,7 +102,7 @@ class API:
         obj = ZpiObject.from_command(subsystem, command, payload)
         return await self.request_raw(obj, expectedStatus)
 
-    async def request_raw(self, obj, expectedStatus=None):
+    async def request_raw(self, obj: ZpiObject, expectedStatus=None):
         if expectedStatus is None:
             expectedStatus = [0]
         """
@@ -138,9 +138,9 @@ class API:
                     waiter = self.wait_for(
                         CommandType.AREQ, Subsystem.AF, "dataConfirm", payload,
                     )
-                    LOGGER.warning("waiting for dataConfirm")
+                    LOGGER.debug("waiting for dataConfirm")
                     result = await waiter.wait()
-                    LOGGER.warning("res %s", result)
+                    LOGGER.debug("res %s", result)
 
                 return result
         elif obj.type == CommandType.AREQ and obj.is_reset_command():
