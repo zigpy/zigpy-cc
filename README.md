@@ -29,6 +29,28 @@ TODO list:
 - [ ] add more tests
 - [ ] ...more coming?
 
+# Testing new releases
+
+Testing a new release before it is released in Home Assistant.
+
+If you're using Supervised Home Assistant (formerly hassio):
+- Add https://developers.home-assistant.io/ as "add-on" repository
+- Install "Custom deps deployment" addon
+- Update config like: 
+  ```
+  pypi:
+    - zigpy-cc==0.2.3
+  apk: []
+  ```
+  where 0.2.3 is the new version
+- Start the addon
+
+If you're using some custom python installation:
+- Activate your python virtual env
+- Update package with ``pip``
+  ```
+  pip install zigpy-cc==0.2.3
+  ```
 # Hardware requirement
 The zigpy-cc library is currently being tested by developers with Texas Instruments CC2531 and CC2652R based adapters as as reference hardware but it should in theory be possible to get it working with work most USB-adapters and GPIO-modules based on Texas Instruments CC Zigbee radio module chips hardware. Note that you also have to flash the chip a custom Z-Stack coordinator firmware before you can use the hardware, read the firmware requirement section below.
 
