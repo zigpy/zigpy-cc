@@ -34,7 +34,7 @@ TODO list:
 Testing a new release before it is released in Home Assistant.
 
 If you're using Supervised Home Assistant (formerly hassio):
-- Add https://developers.home-assistant.io/ as "add-on" repository
+- Add https://github.com/home-assistant/hassio-addons-development as "add-on" repository
 - Install "Custom deps deployment" addon
 - Update config like: 
   ```
