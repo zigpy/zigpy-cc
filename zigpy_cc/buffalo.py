@@ -53,7 +53,7 @@ class Buffalo:
         elif type == ParameterType.UINT32:
             res = self.read_int(4)
         elif type == ParameterType.IEEEADDR:
-            res = zigpy.types.EUI64(self.read(8))
+            res = self.read_ieee_addr()
         elif ParameterType.is_buffer(type):
             type_name = ParameterType(type).name
             length = int(type_name.replace("BUFFER", "") or options.length)
@@ -69,6 +69,9 @@ class Buffalo:
             elif type == ParameterType.LIST_UINT16:
                 for i in range(0, options.length):
                     res.append(self.read_int(2))
+            elif type == ParameterType.LIST_NEIGHBOR_LQI:
+                for i in range(0, options.length):
+                    res.append(self.read_neighbor_lqi())
             else:
                 raise TODO("read type %d", type)
 
@@ -83,3 +86,23 @@ class Buffalo:
         res = self.buffer[self.position : self.position + length]
         self.position += length
         return res
+
+    def read_ieee_addr(self):
+        return zigpy.types.EUI64(self.read(8))
+
+    def read_neighbor_lqi(self):
+        item = dict()
+        item["extPanId"] = self.read_ieee_addr()
+        item["extAddr"] = self.read_ieee_addr()
+        item["nwkAddr"] = zigpy.types.NWK(self.read_int(2))
+
+        value1 = self.read_int()
+        item["deviceType"] = value1 & 0x03
+        item["rxOnWhenIdle"] = (value1 & 0x0C) >> 2
+        item["relationship"] = (value1 & 0x70) >> 4
+
+        item["permitJoin"] = self.read_int() & 0x03
+        item["depth"] = self.read_int()
+        item["lqi"] = self.read_int()
+
+        return item

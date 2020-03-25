@@ -481,3 +481,34 @@ def test_bind_req_serialize():
         )
         == obj.to_unpi_frame().to_buffer()
     )
+
+
+# https://github.com/zigpy/zigpy-cc/issues/21
+def test_mgmt_lqi_rsp():
+    frame = uart.UnpiFrame(
+        2,
+        5,
+        177,
+        b"\x00\x00\x00\x14\x00\x03\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\x1d$&\xfe\xffW\xb4\x14\xef>\x15\x02\x01\x00\xdd"
+        b"\xdd\xdd\xdd\xdd\xdd\xdd\xdd\x9atk\x03\x00\x8d\x15\x00}0\x12\x02\x01`\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\x8d(,"
+        b"\x03\x00\x8d\x15\x00}\xcc\x12\x02\x017",
+        72,
+        34,
+    )
+    obj = ZpiObject.from_unpi_frame(frame)
+    assert (
+        "AREQ ZDO mgmtLqiRsp tsn: None {"
+        "'srcaddr': 0x0000, "
+        "'status': 0, "
+        "'neighbortableentries': 20, "
+        "'startindex': 0, "
+        "'neighborlqilistcount': 3, "
+        "'neighborlqilist': ["
+        "{'extPanId': dd:dd:dd:dd:dd:dd:dd:dd, 'extAddr': 14:b4:57:ff:fe:26:24:1d, 'nwkAddr': 0x3eef, "
+        "'deviceType': 1, 'rxOnWhenIdle': 1, 'relationship': 1, 'permitJoin': 2, 'depth': 1, 'lqi': 0}, "
+        "{'extPanId': dd:dd:dd:dd:dd:dd:dd:dd, 'extAddr': 00:15:8d:00:03:6b:74:9a, 'nwkAddr': 0x307d, "
+        "'deviceType': 2, 'rxOnWhenIdle': 0, 'relationship': 1, 'permitJoin': 2, 'depth': 1, 'lqi': 96}, "
+        "{'extPanId': dd:dd:dd:dd:dd:dd:dd:dd, 'extAddr': 00:15:8d:00:03:2c:28:8d, 'nwkAddr': 0xcc7d, "
+        "'deviceType': 2, 'rxOnWhenIdle': 0, 'relationship': 1, 'permitJoin': 2, 'depth': 1, 'lqi': 55}"
+        "]}" == str(obj)
+    )
