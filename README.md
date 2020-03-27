@@ -1,7 +1,7 @@
 # zigpy-cc
 
-[![Build Status](https://travis-ci.org/sanyatuning/zigpy-cc.svg?branch=master)](https://travis-ci.org/sanyatuning/zigpy-cc)
-[![Coverage](https://coveralls.io/repos/github/sanyatuning/zigpy-cc/badge.svg?branch=master)](https://coveralls.io/github/sanyatuning/zigpy-cc?branch=master)
+[![Build Status](https://travis-ci.org/zigpy/zigpy-cc.svg?branch=master)](https://travis-ci.org/zigpy/zigpy-cc)
+[![Coverage](https://coveralls.io/repos/github/zigpy/zigpy-cc/badge.svg?branch=master)](https://coveralls.io/github/zigpy/zigpy-cc?branch=master)
 
 [zigpy-cc](https://github.com/zigpy/zigpy-cc) is a Python 3 library implemention to add support for Texas Instruments CC series of [Zigbee](https://www.zigbee.org) radio module chips hardware to the [zigpy](https://github.com/zigpy/) project. Including but possibly not limited to Texas Instruments CC253x, CC26x2R, and CC13x2 chips flashed with a custom Z-Stack coordinator firmware.
 
