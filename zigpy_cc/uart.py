@@ -175,7 +175,7 @@ async def connect(port, baudrate, api, loop=None):
         parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE,
         xonxoff=False,
-        rtscts=True,
+        rtscts=False,
     )
 
     await connected_future
