@@ -1,17 +1,21 @@
 import asyncio
 import logging
-from typing import List
+from typing import Any, Dict, List
 
+import serial
+import zigpy.exceptions
+
+from zigpy_cc.config import CONF_DEVICE_PATH, SCHEMA_DEVICE
 from zigpy_cc.exception import CommandError
+
 from . import uart
 from .definition import Definition
-from .types import Repr, Subsystem, CommandType, Timeouts
+from .types import CommandType, Repr, Subsystem, Timeouts
 from .zpi_object import ZpiObject
 
 LOGGER = logging.getLogger(__name__)
 
 COMMAND_TIMEOUT = 3
-CC_BAUDRATE = 115200
 
 
 class Matcher(Repr):
@@ -63,13 +67,12 @@ class Waiter(Repr):
 
 
 class API:
-    def __init__(self):
+    def __init__(self, device_config: Dict[str, Any]):
         self._uart = None
+        self._config = device_config
         self._seq = 1
         self._waiters: List[Waiter] = []
         self._app = None
-        self._device = None
-        self._baudrare = None
         self._proto_ver = None
 
     @property
@@ -77,20 +80,24 @@ class API:
         """Protocol Version."""
         return self._proto_ver
 
+    @classmethod
+    async def new(cls, application, config: Dict[str, Any]) -> "API":
+        api = cls(config)
+        await api.connect()
+        api.set_application(application)
+        return api
+
     def set_application(self, app):
         self._app = app
 
-    async def connect(self, device, baudrate=CC_BAUDRATE):
+    async def connect(self):
         assert self._uart is None
-        self._device = device
-        self._baudrare = baudrate
-        self._uart = await uart.connect(device, baudrate, self)
-
-    async def reconnect(self):
-        self._uart = await uart.connect(self._device, self._baudrare, self)
+        self._uart = await uart.connect(self._config, self)
 
     def close(self):
-        return self._uart.close()
+        if self._uart:
+            self._uart.close()
+            self._uart = None
 
     def connection_lost(self):
         self._app.connection_lost()
@@ -136,7 +143,7 @@ class API:
                         "transid": obj.payload["transid"],
                     }
                     waiter = self.wait_for(
-                        CommandType.AREQ, Subsystem.AF, "dataConfirm", payload,
+                        CommandType.AREQ, Subsystem.AF, "dataConfirm", payload
                     )
                     LOGGER.debug("waiting for dataConfirm")
                     result = await waiter.wait()
@@ -237,3 +244,30 @@ class API:
 
     def _handle_srcRtgInd(self, data):
         pass
+
+    @classmethod
+    async def probe(cls, device_config: Dict[str, Any]) -> bool:
+        """Probe port for the device presence."""
+        api = cls(SCHEMA_DEVICE(device_config))
+        try:
+            await asyncio.wait_for(api._probe(), timeout=COMMAND_TIMEOUT)
+            return True
+        except (
+            asyncio.TimeoutError,
+            serial.SerialException,
+            zigpy.exceptions.ZigbeeException,
+        ) as exc:
+            LOGGER.debug(
+                "Unsuccessful radio probe of '%s' port",
+                device_config[CONF_DEVICE_PATH],
+                exc_info=exc,
+            )
+        finally:
+            api.close()
+
+        return False
+
+    async def _probe(self) -> None:
+        """Open port and try sending a command"""
+        await self.connect()
+        await self.version()

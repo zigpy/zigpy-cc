@@ -1,16 +1,20 @@
 import asyncio
 import logging
+from typing import Any, Dict, Optional
 
 import zigpy.application
+import zigpy.config
 import zigpy.device
+from zigpy.profiles import zha
 import zigpy.types
 import zigpy.util
-from zigpy.profiles import zha
 from zigpy.zdo.types import ZDOCmd
-from zigpy_cc import types as t, __version__
+
+from zigpy_cc import __version__, types as t
 from zigpy_cc.api import API
-from zigpy_cc.exception import CommandError, TODO
-from zigpy_cc.types import Subsystem, NetworkOptions, ZnpVersion
+from zigpy_cc.config import CONF_DEVICE, CONFIG_SCHEMA
+from zigpy_cc.exception import TODO, CommandError
+from zigpy_cc.types import NetworkOptions, Subsystem, ZnpVersion
 from zigpy_cc.zigbee.start_znp import start_znp
 from zigpy_cc.zpi_object import ZpiObject
 
@@ -45,12 +49,12 @@ IGNORED = (
 
 
 class ControllerApplication(zigpy.application.ControllerApplication):
-    _api: API
+    _api: Optional[API]
+    SCHEMA = CONFIG_SCHEMA
 
-    def __init__(self, api: API, database_file=None):
-        super().__init__(database_file=database_file)
-        self._api = api
-        api.set_application(self)
+    def __init__(self, config: Dict[str, Any]):
+        super().__init__(config=zigpy.config.ZIGPY_SCHEMA(config))
+        self._api = None
 
         self.discovering = False
         self.version = {}
@@ -64,19 +68,21 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
     async def reconnect(self):
         while True:
-            self._api.close()
+            if self._api is not None:
+                self._api.close()
             await asyncio.sleep(5)
             try:
-                await self._api.reconnect()
+                await self.startup(True)
                 break
             except Exception as e:
                 LOGGER.info("Failed to reconnect: %s", e)
                 pass
-        await self.startup(True)
 
     async def startup(self, auto_form=False):
         """Perform a complete application startup"""
+
         LOGGER.debug("Starting zigpy-cc version: %s", __version__)
+        self._api = await API.new(self, self._config[CONF_DEVICE])
         self.version = await self._api.version()
         ver = ZnpVersion(self.version["product"]).name
         LOGGER.debug("Detected znp version '%s' (%s)", ver, self.version)

@@ -1,9 +1,14 @@
-from unittest import mock
+from asynctest import mock
 
 import pytest
 import serial_asyncio
 
 from zigpy_cc import uart
+import zigpy_cc.config
+
+DEVICE_CONFIG = zigpy_cc.config.SCHEMA_DEVICE(
+    {zigpy_cc.config.CONF_DEVICE_PATH: "/dev/null"}
+)
 
 
 def eq(a, b):
@@ -20,7 +25,6 @@ def gw():
 @pytest.mark.asyncio
 async def test_connect(monkeypatch):
     api = mock.MagicMock()
-    portmock = mock.MagicMock()
     transport = mock.MagicMock()
 
     async def mock_conn(loop, protocol_factory, **kwargs):
@@ -30,7 +34,7 @@ async def test_connect(monkeypatch):
 
     monkeypatch.setattr(serial_asyncio, "create_serial_connection", mock_conn)
 
-    await uart.connect(portmock, 57600, api)
+    await uart.connect(DEVICE_CONFIG, api)
 
 
 def test_write(gw):
@@ -123,3 +127,22 @@ def test_checksum():
     checksum = 166
     r = uart.UnpiFrame.calculate_checksum(data)
     assert r == checksum
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "control, xonxoff, rtscts",
+    (("software", True, False), ("hardware", False, True), (None, False, False)),
+)
+@mock.patch.object(serial_asyncio, "create_serial_connection")
+async def test_flow_control(conn_mock, control, xonxoff, rtscts):
+    async def set_connected(loop, proto_factory, **kwargs):
+        proto_factory()._connected_future.set_result(True)
+        return mock.sentinel.a, mock.MagicMock()
+
+    conn_mock.side_effect = set_connected
+    await uart.connect(
+        {**DEVICE_CONFIG, zigpy_cc.config.CONF_FLOW_CONTROL: control}, mock.MagicMock()
+    )
+    assert conn_mock.call_args[1]["xonxoff"] == xonxoff
+    assert conn_mock.call_args[1]["rtscts"] == rtscts
