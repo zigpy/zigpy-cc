@@ -3,18 +3,29 @@ import asyncio
 from unittest import mock
 
 import pytest
-
-import zigpy.zdo.types as zdo_t
-import zigpy_cc.zigbee.application as application
 from zigpy.types import EUI64
+import zigpy.zdo.types as zdo_t
+
 from zigpy_cc import types as t
 from zigpy_cc.api import API
+import zigpy_cc.config as config
+import zigpy_cc.zigbee.application as application
 from zigpy_cc.zpi_object import ZpiObject
+
+APP_CONFIG = {
+    config.CONF_DEVICE: {
+        config.CONF_DEVICE_PATH: "/dev/null",
+        config.CONF_DEVICE_BAUDRATE: 115200,
+    },
+    config.CONF_DATABASE: None,
+}
 
 
 @pytest.fixture
-def app(monkeypatch, database_file=None):
-    app = application.ControllerApplication(API(), database_file=database_file)
+def app():
+    app = application.ControllerApplication(APP_CONFIG)
+    app._api = API(APP_CONFIG[config.CONF_DEVICE])
+    app._api.set_application(app)
     return app
 
 
@@ -228,7 +239,7 @@ async def test_get_node_descriptor(app: application.ControllerApplication):
         await asyncio.sleep(0)
         app._api.data_received(frame)
 
-    await asyncio.wait([device.get_node_descriptor(), nested(),], timeout=0.2)
+    await asyncio.wait([device.get_node_descriptor(), nested()], timeout=0.2)
 
     assert isinstance(device.node_desc, zdo_t.NodeDescriptor)
     assert 1234 == device.node_desc.manufacturer_code

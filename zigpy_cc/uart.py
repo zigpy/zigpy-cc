@@ -1,10 +1,12 @@
 import asyncio
 import logging
+from typing import Any, Dict
 
 import serial
 import serial.tools.list_ports
 import serial_asyncio
 
+from zigpy_cc.config import CONF_DEVICE_BAUDRATE, CONF_DEVICE_PATH, CONF_FLOW_CONTROL
 import zigpy_cc.types as t
 
 LOGGER = logging.getLogger(__name__)
@@ -76,9 +78,7 @@ class UnpiFrame(t.Repr):
         if checksum == fcs:
             return cls(command_type, subsystem, command_id, data, length, fcs)
         else:
-            LOGGER.warning(
-                "Invalid checksum: 0x%s, data: 0x%s", checksum, buffer,
-            )
+            LOGGER.warning("Invalid checksum: 0x%s, data: 0x%s", checksum, buffer)
             return None
 
     @staticmethod
@@ -152,13 +152,14 @@ class Gateway(asyncio.Protocol):
             self._api.connection_lost()
 
 
-async def connect(port, baudrate, api, loop=None):
+async def connect(config: Dict[str, Any], api, loop=None) -> Gateway:
     if loop is None:
         loop = asyncio.get_event_loop()
 
     connected_future = loop.create_future()
     protocol = Gateway(api, connected_future)
 
+    port, baudrate = config[CONF_DEVICE_PATH], config[CONF_DEVICE_BAUDRATE]
     if port == "auto":
         devices = list(serial.tools.list_ports.grep("0451:"))
         if devices:
@@ -166,6 +167,13 @@ async def connect(port, baudrate, api, loop=None):
             LOGGER.info("%s found at %s", devices[0].product, port)
         else:
             LOGGER.error("Unable to find TI CC device using auto mode")
+            raise serial.SerialException("Unable to find TI CC device using auto mode")
+
+    xonxoff, rtscts = False, False
+    if config[CONF_FLOW_CONTROL] == "hardware":
+        xonxoff, rtscts = False, True
+    elif config[CONF_FLOW_CONTROL] == "software":
+        xonxoff, rtscts = True, False
 
     _, protocol = await serial_asyncio.create_serial_connection(
         loop,
@@ -174,8 +182,8 @@ async def connect(port, baudrate, api, loop=None):
         baudrate=baudrate,
         parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE,
-        xonxoff=False,
-        rtscts=False,
+        xonxoff=xonxoff,
+        rtscts=rtscts,
     )
 
     await connected_future
