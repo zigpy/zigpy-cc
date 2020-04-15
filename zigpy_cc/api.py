@@ -2,6 +2,10 @@ import asyncio
 import logging
 from typing import Any, Dict, List
 
+import serial
+import zigpy.exceptions
+
+from zigpy_cc.config import CONF_DEVICE_PATH, SCHEMA_DEVICE
 from zigpy_cc.exception import CommandError
 
 from . import uart
@@ -240,3 +244,30 @@ class API:
 
     def _handle_srcRtgInd(self, data):
         pass
+
+    @classmethod
+    async def probe(cls, device_config: Dict[str, Any]) -> bool:
+        """Probe port for the device presence."""
+        api = cls(SCHEMA_DEVICE(device_config))
+        try:
+            await asyncio.wait_for(api._probe(), timeout=COMMAND_TIMEOUT)
+            return True
+        except (
+            asyncio.TimeoutError,
+            serial.SerialException,
+            zigpy.exceptions.ZigbeeException,
+        ) as exc:
+            LOGGER.debug(
+                "Unsuccessful radio probe of '%s' port",
+                device_config[CONF_DEVICE_PATH],
+                exc_info=exc,
+            )
+        finally:
+            api.close()
+
+        return False
+
+    async def _probe(self) -> None:
+        """Open port and try sending a command"""
+        await self.connect()
+        await self.version()

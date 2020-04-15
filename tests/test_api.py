@@ -1,15 +1,16 @@
 import asyncio
-from asynctest import mock
 
+from asynctest import CoroutineMock, mock
 import pytest
+import serial
 
 from zigpy_cc import types as t, uart
 import zigpy_cc.api
 import zigpy_cc.config
 from zigpy_cc.definition import Definition
 import zigpy_cc.exception
-from zigpy_cc.uart import UnpiFrame
 import zigpy_cc.uart
+from zigpy_cc.uart import UnpiFrame
 from zigpy_cc.zpi_object import ZpiObject
 
 DEVICE_CONFIG = zigpy_cc.config.SCHEMA_DEVICE(
@@ -237,3 +238,37 @@ async def test_api_new(conn_mck):
     assert isinstance(api, zigpy_cc.api.API)
     assert conn_mck.call_count == 1
     assert conn_mck.await_count == 1
+
+
+@pytest.mark.asyncio
+@mock.patch.object(zigpy_cc.api.API, "version", new_callable=CoroutineMock)
+@mock.patch.object(uart, "connect")
+async def test_probe_success(mock_connect, mock_version):
+    """Test device probing."""
+
+    res = await zigpy_cc.api.API.probe(DEVICE_CONFIG)
+    assert res is True
+    assert mock_connect.call_count == 1
+    assert mock_connect.await_count == 1
+    assert mock_connect.call_args[0][0] == DEVICE_CONFIG
+    assert mock_version.call_count == 1
+    assert mock_connect.return_value.close.call_count == 1
+
+
+@pytest.mark.asyncio
+@mock.patch.object(zigpy_cc.api.API, "version", side_effect=asyncio.TimeoutError)
+@mock.patch.object(uart, "connect")
+@pytest.mark.parametrize("exception", (asyncio.TimeoutError, serial.SerialException))
+async def test_probe_fail(mock_connect, mock_version, exception):
+    """Test device probing fails."""
+
+    mock_version.side_effect = exception
+    mock_connect.reset_mock()
+    mock_version.reset_mock()
+    res = await zigpy_cc.api.API.probe(DEVICE_CONFIG)
+    assert res is False
+    assert mock_connect.call_count == 1
+    assert mock_connect.await_count == 1
+    assert mock_connect.call_args[0][0] == DEVICE_CONFIG
+    assert mock_version.call_count == 1
+    assert mock_connect.return_value.close.call_count == 1
