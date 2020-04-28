@@ -31,9 +31,9 @@ TODO list:
 
 # Testing new releases
 
-Testing a new release before it is released in Home Assistant.
+Testing a new release of the zigpy-cc library before it is released in Home Assistant.
 
-If you're using Supervised Home Assistant (formerly hassio):
+If you are using Supervised Home Assistant (formerly known as the Hassio/Hass.io distro):
 - Add https://github.com/home-assistant/hassio-addons-development as "add-on" repository
 - Install "Custom deps deployment" addon
 - Update config like: 
@@ -45,7 +45,7 @@ If you're using Supervised Home Assistant (formerly hassio):
   where 0.2.3 is the new version
 - Start the addon
 
-If you're using some custom python installation:
+If you are instead using some custom python installation of Home Assistant then do this:
 - Activate your python virtual env
 - Update package with ``pip``
   ```
