@@ -15,7 +15,7 @@ from .zpi_object import ZpiObject
 
 LOGGER = logging.getLogger(__name__)
 
-COMMAND_TIMEOUT = 3
+COMMAND_TIMEOUT = 2
 
 
 class Matcher(Repr):

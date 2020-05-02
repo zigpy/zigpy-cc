@@ -12,7 +12,7 @@ from zigpy.zdo.types import ZDOCmd
 
 from zigpy_cc import __version__, types as t
 from zigpy_cc.api import API
-from zigpy_cc.config import CONF_DEVICE, CONFIG_SCHEMA
+from zigpy_cc.config import CONF_DEVICE, CONFIG_SCHEMA, SCHEMA_DEVICE
 from zigpy_cc.exception import TODO, CommandError
 from zigpy_cc.types import NetworkOptions, Subsystem, ZnpVersion
 from zigpy_cc.zigbee.start_znp import start_znp
@@ -51,6 +51,9 @@ IGNORED = (
 class ControllerApplication(zigpy.application.ControllerApplication):
     _api: Optional[API]
     SCHEMA = CONFIG_SCHEMA
+    SCHEMA_DEVICE = SCHEMA_DEVICE
+
+    probe = API.probe
 
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config=zigpy.config.ZIGPY_SCHEMA(config))
