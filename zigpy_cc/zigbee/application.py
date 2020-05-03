@@ -5,9 +5,10 @@ from typing import Any, Dict, Optional
 import zigpy.application
 import zigpy.config
 import zigpy.device
-from zigpy.profiles import zha
 import zigpy.types
 import zigpy.util
+from zigpy.profiles import zha
+from zigpy.types import BroadcastAddress
 from zigpy.zdo.types import ZDOCmd
 
 from zigpy_cc import __version__, types as t
@@ -29,6 +30,7 @@ REQUESTS = {
     "ieeeAddrReq": (ZDOCmd.IEEE_addr_req, 0),
     "matchDescReq": (ZDOCmd.Match_Desc_req, 2),
     "endDeviceAnnceInd": (ZDOCmd.Device_annce, 2),
+    "mgmtLqiRsp": (ZDOCmd.Mgmt_Lqi_rsp, 2),
     "mgmtPermitJoinReq": (ZDOCmd.Mgmt_Permit_Joining_req, 3),
     "mgmtPermitJoinRsp": (ZDOCmd.Mgmt_Permit_Joining_rsp, 2),
     "nodeDescRsp": (ZDOCmd.Node_Desc_rsp, 2),
@@ -39,6 +41,7 @@ REQUESTS = {
 
 IGNORED = (
     # "activeEpRsp",
+    "bdbComissioningNotifcation",
     "dataConfirm",
     "leaveInd",
     # "mgmtPermitJoinRsp",
@@ -84,11 +87,11 @@ class ControllerApplication(zigpy.application.ControllerApplication):
     async def startup(self, auto_form=False):
         """Perform a complete application startup"""
 
-        LOGGER.debug("Starting zigpy-cc version: %s", __version__)
+        LOGGER.info("Starting zigpy-cc version: %s", __version__)
         self._api = await API.new(self, self._config[CONF_DEVICE])
         self.version = await self._api.version()
         ver = ZnpVersion(self.version["product"]).name
-        LOGGER.debug("Detected znp version '%s' (%s)", ver, self.version)
+        LOGGER.info("Detected znp version '%s' (%s)", ver, self.version)
 
         if auto_form:
             await self.form_network()
@@ -112,7 +115,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         options = NetworkOptions()
         backupPath = ""
         status = await start_znp(
-            self._api, self.version["product"], options, backupPath
+            self._api, self.version["product"], options, 0x0B84, backupPath
         )
         LOGGER.debug("ZNP started, status: %s", status)
 
@@ -267,7 +270,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         assert 0 <= time_s <= 254
         payload = {
             "addrmode": 0x0F,
-            "dstaddr": 0xFFFC,
+            "dstaddr": BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR,
             "duration": time_s,
             "tcsignificance": 0,
         }
@@ -315,9 +318,8 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         if obj.subsystem == t.Subsystem.ZDO and obj.command in REQUESTS:
             if obj.sequence is None:
-                LOGGER.warning("missing tsn from %s, maybe not a reply", obj.command)
                 return
-            LOGGER.info("REPLY for %d %s", obj.sequence, obj.command)
+            LOGGER.debug("REPLY for %d %s", obj.sequence, obj.command)
             cluster_id, prefix_length = REQUESTS[obj.command]
             tsn = bytes([obj.sequence])
             data = tsn + frame.data[prefix_length:]
@@ -334,7 +336,10 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         else:
             LOGGER.warning(
-                "Unhandled message: %s %s", t.Subsystem(obj.subsystem), obj.command
+                "Unhandled message: %s %s %s",
+                t.CommandType(obj.type),
+                t.Subsystem(obj.subsystem),
+                obj.command,
             )
             return
 

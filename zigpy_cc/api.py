@@ -58,9 +58,6 @@ class Waiter(Repr):
         if matcher.payload:
             for f, v in matcher.payload.items():
                 if v != obj.payload[f]:
-                    LOGGER.debug(
-                        "payload missmatch\n-%s\n+%s", matcher.payload, obj.payload
-                    )
                     return False
 
         return True
@@ -105,13 +102,13 @@ class API:
     async def _command(self, subsystem, command, payload) -> ZpiObject:
         return await self.request(subsystem, command, payload)
 
-    async def request(self, subsystem, command, payload, expectedStatus=None):
+    async def request(self, subsystem, command, payload, expected_status=None):
         obj = ZpiObject.from_command(subsystem, command, payload)
-        return await self.request_raw(obj, expectedStatus)
+        return await self.request_raw(obj, expected_status)
 
-    async def request_raw(self, obj: ZpiObject, expectedStatus=None):
-        if expectedStatus is None:
-            expectedStatus = [0]
+    async def request_raw(self, obj: ZpiObject, expected_status=None):
+        if expected_status is None:
+            expected_status = [0]
         """
         TODO add queue
         """
@@ -119,7 +116,12 @@ class API:
         frame = obj.to_unpi_frame()
 
         if obj.type == CommandType.SREQ:
-            timeout = Timeouts.SREQ
+            timeout = (
+                20000
+                if obj.command == "bdbStartCommissioning"
+                or obj.command == "startupFromApp"
+                else Timeouts.SREQ
+            )
             waiter = self.wait_for(
                 CommandType.SRSP, obj.subsystem, obj.command, {}, timeout
             )
@@ -128,12 +130,12 @@ class API:
             if (
                 result
                 and "status" in result.payload
-                and result.payload["status"] not in expectedStatus
+                and result.payload["status"] not in expected_status
             ):
                 raise CommandError(
                     result.payload["status"],
                     "SREQ '{}' failed with status '{}' (expected '{}')".format(
-                        obj.command, result.payload["status"], expectedStatus
+                        obj.command, result.payload["status"], expected_status
                     ),
                 )
             else:
@@ -145,9 +147,7 @@ class API:
                     waiter = self.wait_for(
                         CommandType.AREQ, Subsystem.AF, "dataConfirm", payload
                     )
-                    LOGGER.debug("waiting for dataConfirm")
                     result = await waiter.wait()
-                    LOGGER.debug("res %s", result)
 
                 return result
         elif obj.type == CommandType.AREQ and obj.is_reset_command():
@@ -198,6 +198,13 @@ class API:
         waiter = Waiter(type, subsystem, command, payload, timeout, sequence)
         self._waiters.append(waiter)
 
+        def callback():
+            if not waiter.future.done() or waiter.future.cancelled():
+                LOGGER.warning("Waiter timeout: %s", waiter)
+                self._waiters.remove(waiter)
+
+        asyncio.get_event_loop().call_later(timeout / 1000 + 0.1, callback)
+
         return waiter
 
     def data_received(self, frame):
@@ -240,7 +247,7 @@ class API:
         LOGGER.debug("Version response: %s", data.payload)
 
     def _handle_getDeviceInfo(self, data):
-        LOGGER.debug("Device info: %s", data.payload)
+        LOGGER.info("Device info: %s", data.payload)
 
     def _handle_srcRtgInd(self, data):
         pass

@@ -1,6 +1,7 @@
 import logging
 import os
 
+from zigpy.zcl.clusters.general import Ota
 from zigpy.zcl.clusters.security import IasZone
 
 from zigpy_cc.api import API
@@ -47,13 +48,29 @@ Endpoints = [
     # TERNCY: https://github.com/Koenkk/zigbee-herdsman/issues/82
     Endpoint(endpoint=0x6E, appprofid=0x0104),
     Endpoint(endpoint=12, appprofid=0xC05E),
+    Endpoint(
+        endpoint=13,
+        appprofid=0x0104,
+        appnuminclusters=1,
+        appoutclusterlist=[Ota.cluster_id],
+    ),
+    # Insta/Jung/Gira: OTA fallback EP (since it's buggy in firmware 10023202
+    # when it tries to find a matching EP for OTA - it queries for ZLL profile,
+    # but then contacts with HA profile)
+    Endpoint(endpoint=47, appprofid=0x0104),
+    Endpoint(endpoint=242, appprofid=0xA1E0),
 ]
 
 
 async def validate_item(
-    znp: API, item, message, subsystem=Subsystem.SYS, command="osalNvRead"
+    znp: API,
+    item,
+    message,
+    subsystem=Subsystem.SYS,
+    command="osalNvRead",
+    expected_status=None,
 ):
-    result = await znp.request(subsystem, command, item)
+    result = await znp.request(subsystem, command, item, expected_status)
     if result.payload["value"] != item["value"]:
         msg = "Item '{}' is invalid, got '{}', expected '{}'".format(
             message, result.payload["value"], item["value"]
@@ -66,7 +83,12 @@ async def validate_item(
 
 async def needsToBeInitialised(znp: API, version, options):
     try:
-        await validate_item(znp, Items.znpHasConfigured(version), "hasConfigured")
+        await validate_item(
+            znp,
+            Items.znpHasConfigured(version),
+            "hasConfigured",
+            expected_status=[0, 2],
+        )
         await validate_item(znp, Items.channelList(options.channelList), "channelList")
         await validate_item(
             znp,
@@ -85,13 +107,25 @@ async def needsToBeInitialised(znp: API, version, options):
                 "readConfiguration",
             )
 
-        await validate_item(znp, Items.panID(options.panID), "panID")
-        await validate_item(
-            znp, Items.extendedPanID(options.extendedPanID), "extendedPanID"
-        )
+        try:
+            await validate_item(znp, Items.panID(options.panID), "panID")
+            await validate_item(
+                znp, Items.extendedPanID(options.extendedPanID), "extendedPanID"
+            )
+        except AssertionError as e:
+            if version == ZnpVersion.zStack30x or version == ZnpVersion.zStack3x0:
+                # When the panID has never been set, it will be [0xFF, 0xFF].
+                result = await znp.request(
+                    Subsystem.SYS, "osalNvRead", Items.panID(options.panID)
+                )
+                LOGGER.debug("PANID: %s", result.payload["value"])
+                if result.payload["value"] == bytes([0xFF, 0xFF]):
+                    LOGGER.debug("Skip enforcing panID because a random panID is used")
+                else:
+                    raise e
 
         return False
-    except Exception as e:
+    except AssertionError as e:
         LOGGER.debug("Error while validating items: %s", e)
         return True
 
@@ -106,9 +140,9 @@ async def boot(znp: API):
         )
         await znp.request(Subsystem.ZDO, "startupFromApp", {"startdelay": 100}, [0, 1])
         await started.wait()
-        LOGGER.debug("ZNP started as coordinator")
+        LOGGER.info("ZNP started as coordinator")
     else:
-        LOGGER.debug("ZNP is already started as coordinator")
+        LOGGER.info("ZNP is already started as coordinator")
 
 
 async def registerEndpoints(znp: API):
@@ -198,11 +232,35 @@ async def initialise(znp: API, version, options: NetworkOptions):
     await znp.request(Subsystem.SYS, "osalNvWrite", Items.znpHasConfigured(version))
 
 
-async def start_znp(znp: API, version, options: NetworkOptions, backupPath=""):
+async def addToGroup(znp: API, endpoint: int, group: int):
+    result = await znp.request(
+        Subsystem.ZDO, "extFindGroup", {"endpoint": endpoint, "groupid": group}, [0, 1]
+    )
+    if result.payload["status"] == 1:
+        await znp.request(
+            Subsystem.ZDO,
+            "extAddGroup",
+            {
+                "endpoint": endpoint,
+                "groupid": group,
+                "namelen": 0,
+                "groupname": bytes([]),
+            },
+        )
+
+
+async def start_znp(
+    znp: API, version, options: NetworkOptions, greenPowerGroup: int, backupPath=""
+):
     result = "resumed"
 
     try:
-        await validate_item(znp, Items.znpHasConfigured(version), "hasConfigured")
+        await validate_item(
+            znp,
+            Items.znpHasConfigured(version),
+            "hasConfigured",
+            expected_status=[0, 2],
+        )
         hasConfigured = True
     except (AssertionError, CommandError):
         hasConfigured = False
@@ -227,6 +285,9 @@ async def start_znp(znp: API, version, options: NetworkOptions, backupPath=""):
 
     await boot(znp)
     await registerEndpoints(znp)
+
+    # Add to required group to receive greenPower messages.
+    await addToGroup(znp, 242, greenPowerGroup)
 
     if result == "restored":
         # Write channel list again, otherwise it doesnt seem to stick.

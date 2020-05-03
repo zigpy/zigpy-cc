@@ -512,3 +512,22 @@ def test_mgmt_lqi_rsp():
         "'deviceType': 2, 'rxOnWhenIdle': 0, 'relationship': 1, 'permitJoin': 2, 'depth': 1, 'lqi': 55}"
         "]}" == str(obj)
     )
+
+
+def test_mgmt_nwk_update_notify():
+    frame = uart.UnpiFrame(
+        2,
+        5,
+        184,
+        b"\xe9\xc0\x00\x00\xf8\xff\x07\x14\x00\x0f\x00\x10\xd6\xac"
+        b"\xcc\xb0\xb5\xa2\xb2\xa5\xb3\xa5\xa2\xa9\xa1\xa1\xa5\xae",
+        28,
+        211,
+    )
+    obj = ZpiObject.from_unpi_frame(frame)
+    assert (
+        "AREQ ZDO mgmtNwkUpdateNotify tsn: None {'srcaddr': 0xc0e9, 'status': 0, 'scanchannels': 134215680, "
+        "'totaltransmissions': 20, 'transmissionfailures': 15, 'channelcount': 16, "
+        "'energyvalues': [214, 172, 204, 176, 181, 162, 178, 165, 179, 165, 162, 169, 161, 161, 165, 174]"
+        "}" == str(obj)
+    )

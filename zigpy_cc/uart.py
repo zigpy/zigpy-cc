@@ -113,7 +113,7 @@ class Gateway(asyncio.Protocol):
 
     def connection_made(self, transport: serial_asyncio.SerialTransport):
         """Callback when the uart is connected"""
-        LOGGER.info("Connection made")
+        LOGGER.debug("Connection made")
         self._open = True
         self._transport = transport
         if self._connected_future:
@@ -175,6 +175,7 @@ async def connect(config: Dict[str, Any], api, loop=None) -> Gateway:
     elif config[CONF_FLOW_CONTROL] == "software":
         xonxoff, rtscts = True, False
 
+    LOGGER.debug("Connecting on port %s with boudrate %d", port, baudrate)
     _, protocol = await serial_asyncio.create_serial_connection(
         loop,
         lambda: protocol,

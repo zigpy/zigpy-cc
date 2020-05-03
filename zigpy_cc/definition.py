@@ -10,6 +10,7 @@ response = "response"
 parameterType = "parameterType"
 type = "type"
 
+
 Definition = {
     Subsystem.SYS: [
         {
@@ -1637,6 +1638,20 @@ Definition = {
             request: [
                 {name: "srcaddr", parameterType: ParameterType.UINT16},
                 {name: "status", parameterType: ParameterType.UINT8},
+            ],
+        },
+        {
+            name: "mgmtNwkUpdateNotify",
+            ID: 184,
+            type: CommandType.AREQ,
+            request: [
+                {name: "srcaddr", parameterType: ParameterType.UINT16},
+                {name: "status", parameterType: ParameterType.UINT8},
+                {name: "scanchannels", parameterType: ParameterType.UINT32},
+                {name: "totaltransmissions", parameterType: ParameterType.UINT16},
+                {name: "transmissionfailures", parameterType: ParameterType.UINT16},
+                {name: "channelcount", parameterType: ParameterType.UINT8},
+                {name: "energyvalues", parameterType: ParameterType.LIST_UINT8},
             ],
         },
         {
