@@ -109,7 +109,12 @@ class API:
         frame = obj.to_unpi_frame()
 
         if obj.type == CommandType.SREQ:
-            timeout = 20000 if obj.command == 'bdbStartCommissioning' or obj.command == 'startupFromApp' else Timeouts.SREQ
+            timeout = (
+                20000
+                if obj.command == "bdbStartCommissioning"
+                or obj.command == "startupFromApp"
+                else Timeouts.SREQ
+            )
             waiter = self.wait_for(
                 CommandType.SRSP, obj.subsystem, obj.command, {}, timeout
             )
@@ -188,7 +193,7 @@ class API:
 
         def callback():
             if not waiter.future.done() or waiter.future.cancelled():
-                LOGGER.warning('Waiter timeout: %s', waiter)
+                LOGGER.warning("Waiter timeout: %s", waiter)
                 self._waiters.remove(waiter)
 
         asyncio.get_event_loop().call_later(timeout / 1000 + 0.1, callback)

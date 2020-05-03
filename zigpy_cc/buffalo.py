@@ -37,11 +37,31 @@ class Buffalo:
         elif type == ParameterType.LIST_UINT16:
             for v in value:
                 self.write(v, 2)
+        elif type == ParameterType.LIST_NEIGHBOR_LQI:
+            for v in value:
+                self.write_neighbor_lqi(v)
         else:
-            raise TODO("write %s, value: %s", ParameterType(type), value)
+            raise TODO(
+                "write %s, value: %s, options: %s", ParameterType(type), value, options
+            )
 
-    def write(self, value, length=1):
-        self.buffer += value.to_bytes(length, "little")
+    def write(self, value, length=1, signed=False):
+        self.buffer += value.to_bytes(length, "little", signed=signed)
+
+    def write_neighbor_lqi(self, value):
+        for i in value["extPanId"]:
+            self.write(i)
+        for i in value["extAddr"]:
+            self.write(i)
+        self.write(value["nwkAddr"], 2)
+        self.write(
+            value["deviceType"]
+            | (value["rxOnWhenIdle"] * 4)
+            | (value["relationship"] * 16)
+        )
+        self.write(value["permitJoin"])
+        self.write(value["depth"])
+        self.write(value["lqi"])
 
     def read_parameter(self, type, options):
         if type == ParameterType.UINT8:

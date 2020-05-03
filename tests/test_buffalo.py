@@ -1,7 +1,7 @@
 import zigpy_cc.types as t
-from zigpy.types import EUI64
+from zigpy.types import EUI64, NWK
 
-from zigpy_cc.buffalo import Buffalo
+from zigpy_cc.buffalo import Buffalo, BuffaloOptions
 
 ieeeAddr1 = {
     "string": EUI64.convert("ae:44:01:12:00:4b:12:00"),
@@ -36,3 +36,31 @@ def test_read_ieee2():
     data_in = Buffalo(ieeeAddr2["hex"])
     actual = data_in.read_parameter(t.ParameterType.IEEEADDR, {})
     assert ieeeAddr2["string"] == actual
+
+
+def test_list_nighbor_lqi():
+    value = [
+        {
+            "extPanId": EUI64.convert("d8:dd:dd:dd:d0:dd:ed:dd"),
+            "extAddr": EUI64.convert("00:15:8d:00:04:21:dc:b3"),
+            "nwkAddr": NWK(0xE961),
+            "deviceType": 1,
+            "rxOnWhenIdle": 2,
+            "relationship": 2,
+            "permitJoin": 2,
+            "depth": 255,
+            "lqi": 69,
+        }
+    ]
+    data_out = Buffalo(b"")
+    data_out.write_parameter(t.ParameterType.LIST_NEIGHBOR_LQI, value, {})
+    assert (
+        b"\xdd\xed\xdd\xd0\xdd\xdd\xdd\xd8\xb3\xdc!\x04\x00\x8d\x15\x00a\xe9)\x02\xffE"
+        == data_out.buffer
+    )
+
+    data_in = Buffalo(data_out.buffer)
+    options = BuffaloOptions()
+    options.length = len(value)
+    act = data_in.read_parameter(t.ParameterType.LIST_NEIGHBOR_LQI, options)
+    assert value == act

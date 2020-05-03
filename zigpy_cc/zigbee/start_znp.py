@@ -54,8 +54,9 @@ Endpoints = [
         appnuminclusters=1,
         appoutclusterlist=[Ota.cluster_id],
     ),
-    # Insta/Jung/Gira: OTA fallback EP (since it's buggy in firmware 10023202 when it tries to find a matching EP for
-    # OTA - it queries for ZLL profile, but then contacts with HA profile)
+    # Insta/Jung/Gira: OTA fallback EP (since it's buggy in firmware 10023202
+    # when it tries to find a matching EP for OTA - it queries for ZLL profile,
+    # but then contacts with HA profile)
     Endpoint(endpoint=47, appprofid=0x0104),
     Endpoint(endpoint=242, appprofid=0xA1E0),
 ]
@@ -113,9 +114,6 @@ async def needsToBeInitialised(znp: API, version, options):
             )
         except AssertionError as e:
             if version == ZnpVersion.zStack30x or version == ZnpVersion.zStack3x0:
-                # Zigbee-herdsman =< 0.6.5 didn't set the panID and extendedPanID on zStack 3.
-                # As we are now checking it, it would trigger a reinitialise which will cause users
-                # to lose their network. Therefore we are ignoring this case.
                 # When the panID has never been set, it will be [0xFF, 0xFF].
                 result = await znp.request(
                     Subsystem.SYS, "osalNvRead", Items.panID(options.panID)
@@ -242,15 +240,27 @@ async def addToGroup(znp: API, endpoint: int, group: int):
         await znp.request(
             Subsystem.ZDO,
             "extAddGroup",
-            {"endpoint": endpoint, "groupid": group, "namelen": 0, "groupname": bytes([])},
+            {
+                "endpoint": endpoint,
+                "groupid": group,
+                "namelen": 0,
+                "groupname": bytes([]),
+            },
         )
 
 
-async def start_znp(znp: API, version, options: NetworkOptions, greenPowerGroup: int, backupPath=""):
+async def start_znp(
+    znp: API, version, options: NetworkOptions, greenPowerGroup: int, backupPath=""
+):
     result = "resumed"
 
     try:
-        await validate_item(znp, Items.znpHasConfigured(version), "hasConfigured", expected_status=[0, 2])
+        await validate_item(
+            znp,
+            Items.znpHasConfigured(version),
+            "hasConfigured",
+            expected_status=[0, 2],
+        )
         hasConfigured = True
     except (AssertionError, CommandError):
         hasConfigured = False

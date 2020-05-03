@@ -26,6 +26,7 @@ REQUESTS = {
     "ieeeAddrReq": (ZDOCmd.IEEE_addr_req, 0),
     "matchDescReq": (ZDOCmd.Match_Desc_req, 2),
     "endDeviceAnnceInd": (ZDOCmd.Device_annce, 2),
+    "mgmtLqiRsp": (ZDOCmd.Mgmt_Lqi_rsp, 2),
     "mgmtPermitJoinReq": (ZDOCmd.Mgmt_Permit_Joining_req, 3),
     "mgmtPermitJoinRsp": (ZDOCmd.Mgmt_Permit_Joining_rsp, 2),
     "nodeDescRsp": (ZDOCmd.Node_Desc_rsp, 2),
@@ -105,7 +106,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         options = NetworkOptions()
         backupPath = ""
         status = await start_znp(
-            self._api, self.version["product"], options, 0x0b84, backupPath
+            self._api, self.version["product"], options, 0x0B84, backupPath
         )
         LOGGER.debug("ZNP started, status: %s", status)
 
@@ -326,7 +327,10 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         else:
             LOGGER.warning(
-                "Unhandled message: %s %s %s", t.CommandType(obj.type), t.Subsystem(obj.subsystem), obj.command
+                "Unhandled message: %s %s %s",
+                t.CommandType(obj.type),
+                t.Subsystem(obj.subsystem),
+                obj.command,
             )
             return
 
