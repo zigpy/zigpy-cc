@@ -38,7 +38,7 @@ class Buffalo:
             for v in value:
                 self.write(v, 2)
         else:
-            raise TODO("write %s", ParameterType(type))
+            raise TODO("write %s, value: %s", ParameterType(type), value)
 
     def write(self, value, length=1):
         self.buffer += value.to_bytes(length, "little")

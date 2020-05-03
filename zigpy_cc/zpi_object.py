@@ -1,4 +1,5 @@
 from zigpy.profiles import zha
+from zigpy.types import BroadcastAddress
 
 from zigpy_cc import uart
 from zigpy_cc.buffalo import Buffalo, BuffaloOptions
@@ -107,8 +108,9 @@ class ZpiObject:
                 "data": data,
             }
         elif name == "mgmtPermitJoinReq":
+            addrmode = 0x0F if nwk == BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR else 0x02
             payload = cls.read_parameters(
-                bytes([0x0F]) + nwk.to_bytes(2, "little") + data[1:], parameters
+                bytes([addrmode]) + nwk.to_bytes(2, "little") + data[1:], parameters
             )
         else:
             # TODO
