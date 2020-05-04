@@ -84,6 +84,25 @@ The [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project has intructions for sever
     - Alternatively you could try to set just port to `auto` to enable automatic usb port discovery (not garanteed to work).
 - Texas Instruments default recommend Baud rate of CC253x serial device is 115200 (this could be different for other TI CC chips).
 
+# Toubleshooting 
+
+For toubleshooting with Home Assistant, the general recommendation is to first only enable DEBUG logging for homeassistant.core and homeassistant.components.zha in Home Assistant, then look in the home-assistant.log file and try to get the Home Assistant community to exhausted their combined troubleshooting knowledge of the ZHA component before posting issue directly to a radio library like zigpy-cc.
+
+That is, begin with checking debug logs for Home Assistant core and the ZHA component first, (troubleshooting/debugging from the top down instead of from the bottom up), trying to getting help via Home Assistant community forum before moving on to posting debug logs to zigpy and zigpy-cc. This is to general suggestion to help filter away common problems and not flood the zigpy-cc developer(s) with to many logs.
+
+Please also try the very latest versions of zigpy and zigpy-cc, (see the section above about "Testing new releases"), and only if you still have the same issues with the latest versions then enable debug logging for zigpy and zigpy_cc in Home Assistant in addition to core and zha. Once enabled debug logging for all those libraries in Home Assistant you should try to reproduce the problem and then raise an issue in zigpy-cc repo with a copy of those logs.
+
+To enable debugging in Home Assistant to get debug logs, either update logger configuration section in configuration.yaml or call logger.set_default_level service with {"level": "debug"} data. Check logger component configuration where you want something this in your configuration.yaml
+
+  logger:
+  default: info
+  logs:
+  asyncio: debug
+  homeassistant.core: debug
+  homeassistant.components.zha: debug
+  zigpy: debug
+  zigpy_cc: debug
+
 # Releases via PyPI
 
 Tagged versions will also be released via PyPI
