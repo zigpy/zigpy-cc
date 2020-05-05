@@ -16,19 +16,6 @@ The zigpy-cc library itself is a port of the [zigbee-herdsman](https://github.co
 ## WARNING!!! - Work in progress
 Disclaimer: This software is provided "AS IS", without warranty of any kind. The zigpy-cc project is under development as WIP (work in progress), it is not fully working yet. 
 
-TODO list:
-- [x] uart communication
-- [x] init coordinator
-- [x] handling join requests
-- [x] get node descriptor
-- [x] get endpoint list
-- [x] get endpoint info
-- [ ] bind
-- [ ] fix entities in Home Assistant
-- [ ] fix lint problems
-- [ ] add more tests
-- [ ] ...more coming?
-
 # Hardware requirement
 The zigpy-cc library is currently being tested by developers with Texas Instruments CC2531 and CC2652R based adapters/boards as as reference hardware but it should in theory be possible to get it working with work most USB-adapters and GPIO-modules based on Texas Instruments CC Zigbee radio module chips hardware. Note that unless you bought pre-flashed with correct custom firmware you will also have to flash the chip a compatible Z-Stack coordinator firmware before you can use the hardware, please read the firmware requirement section below.
 
