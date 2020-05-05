@@ -29,6 +29,71 @@ TODO list:
 - [ ] add more tests
 - [ ] ...more coming?
 
+# Hardware requirement
+The zigpy-cc library is currently being tested by developers with Texas Instruments CC2531 and CC2652R based adapters/boards as as reference hardware but it should in theory be possible to get it working with work most USB-adapters and GPIO-modules based on Texas Instruments CC Zigbee radio module chips hardware. Note that unless you bought pre-flashed with correct custom firmware you will also have to flash the chip a compatible Z-Stack coordinator firmware before you can use the hardware, please read the firmware requirement section below.
+
+## Reference hardware being tested by zigpy-cc developers
+  - [CC2531 USB stick hardware flashed with custom Z-Stack 1.2 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+  - [CC2652R dev board hardware flashed with custom Z-Stack 3.x coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+  
+ ## Hardware not activly tested by zigpy-cc developers
+  - [CC2530 + CC2591 USB stick hardware flashed with custom Z-Stack 1.2 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+  - [CC2530 + CC2592 dev board hardware flashed with custom Z-Stack 1.2 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+  - [CC1352P-2 dev board hardware flashed with custom Z-Stack 3.0 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+  - [CC2538 + CC2592 dev board hardware flashed with custom Z-Stack 3.0 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+  
+## Firmware requirement
+Firmware requirement is that they support Texas Instruments "Z-Stack Monitor and Test" APIs using an UART interface (serial communcation protocol), which they should do if they are flashed with custom Z-Stack "coordinator" firmware for Zigbee 1.2 or Zigbee 3.0 from the Zigbee2mqtt project.
+
+- https://github.com/Koenkk/Z-Stack-firmware/tree/master/coordinator
+
+The necessary hardware and equipment for flashing firmware and the device preparation process is best described by the [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project whos community maintain and distribute a custom pre-compiled Z-Stack coordinator firmware (.hex files) for their [Zigbee-Heardsman](https://github.com/Koenkk/zigbee-herdsman/) libary which also makes it compatible with the zigpy-cc library.
+
+CC253x based adapters/boards in general does not come with a bootloader from the factory so needs to first be hardware flashed with a pre-compiled Z-Stack coordinator firmware (.hex file) via a Texas Instruments CC Debugger or a DIY GPIO debug adapter using the official "SmartRF Flash-Programmer" (v1.1x) software from Texas Instruments, or comparative alternative metods and software.
+
+CC13x2 and CC26x2 based adapters/boards in general already come with a bootloader from the factory so can be software flashed with a pre-compiled Z-Stack coordinator firmware (.hex file) directly over USB using the official "SmartRF Flash-Programmer-2" (v1.8+) or "UniFlash" (6.x) from Texas Instruments, or comparative alternative metods and software.
+
+The [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project has step-by-step intructions for both flashing with Texas Instruments official software as well as several alternative metods on how to initially flash their custom Z-Stack coordinator firmware on a new CC253x, CC13x2, CC26x2 and other Texas Instruments CCxxxx based USB adapters and development boards that comes or do not come with a bootloader. 
+
+- https://www.zigbee2mqtt.io/information/supported_adapters.html
+- https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html
+- https://www.zigbee2mqtt.io/getting_started/flashing_the_cc2531.html
+- https://www.zigbee2mqtt.io/information/alternative_flashing_methods.html
+
+Note that the [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project also have a FAQ and knowledgebase that can be useful for working with these Texas Instruments ZNP coordinator hardware adapters/equipment for their Z-Stack as well as lists Zigbee devices which should be supported.
+
+## Port configuration
+
+- To configure __usb__ port path for your TI CC serial device, just specify the TTY (serial com) port, example : `/dev/ttyACM0`
+    - Alternatively you could try to set just port to `auto` to enable automatic usb port discovery (not garanteed to work).
+
+Developers should note that Texas Instruments recommends different baud rates for UART interface of different TI CC chips.
+- CC2530 and CC2531 default recommended UART baud rate is 115200 baud.
+- CC2538 also supports flexible UART baud rate generation but only up to a maximum of 460800 baud.
+- CC13x2 and CC26x2 support flexible UART baud rate generation up to a maximum of 1.5 Mbps.
+
+# Toubleshooting 
+
+For toubleshooting with Home Assistant, the general recommendation is to first only enable DEBUG logging for homeassistant.core and homeassistant.components.zha in Home Assistant, then look in the home-assistant.log file and try to get the Home Assistant community to exhausted their combined troubleshooting knowledge of the ZHA component before posting issue directly to a radio library like zigpy-cc.
+
+That is, begin with checking debug logs for Home Assistant core and the ZHA component first, (troubleshooting/debugging from the top down instead of from the bottom up), trying to getting help via Home Assistant community forum before moving on to posting debug logs to zigpy and zigpy-cc. This is to general suggestion to help filter away common problems and not flood the zigpy-cc developer(s) with to many logs.
+
+Please also try the very latest versions of zigpy and zigpy-cc, (see the section below about "Testing new releases"), and only if you still have the same issues with the latest versions then enable debug logging for zigpy and zigpy_cc in Home Assistant in addition to core and zha. Once enabled debug logging for all those libraries in Home Assistant you should try to reproduce the problem and then raise an issue in zigpy-cc repo with a copy of those logs.
+
+To enable debugging in Home Assistant to get debug logs, either update logger configuration section in configuration.yaml or call logger.set_default_level service with {"level": "debug"} data. 
+
+Check logger component configuration where you want something in your Home Assistant configuration.yaml like this: 
+  ```
+  logger:
+  default: info
+  logs:
+  asyncio: debug
+  homeassistant.core: debug
+  homeassistant.components.zha: debug
+  zigpy: debug
+  zigpy_cc: debug
+ ```
+
 # Testing new releases
 
 Testing a new release of the zigpy-cc library before it is released in Home Assistant.
@@ -51,57 +116,6 @@ If you are instead using some custom python installation of Home Assistant then 
   ```
   pip install zigpy-cc==0.2.3
   ```
-# Hardware requirement
-The zigpy-cc library is currently being tested by developers with Texas Instruments CC2531 and CC2652R based adapters as as reference hardware but it should in theory be possible to get it working with work most USB-adapters and GPIO-modules based on Texas Instruments CC Zigbee radio module chips hardware. Note that you also have to flash the chip a custom Z-Stack coordinator firmware before you can use the hardware, read the firmware requirement section below.
-
-## Hardware being tested by zigpy-cc developers
-  - [CC2531 USB stick hardware flashed with custom Z-Stack coordinator firmware from the Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC2652R dev board hardware flashed with custom Z-Stack coordinator firmware from the Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  
- ## Hardware not yet tested by zigpy-cc developers
-  - [CC2530 + CC2591 USB stick hardware flashed with custom Z-Stack coordinator firmware from the Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC2530 + CC2592 dev board hardware flashed with custom Z-Stack coordinator firmware from the Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC1352P-2 dev board hardware flashed with custom Z-Stack coordinator firmware from the Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC2538 + CC2592 dev board hardware flashed with custom Z-Stack coordinator firmware from the Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)  
-
-## Firmware requirement
-Firmware requirement is that they support Texas Instruments Z-Stack Monitor and Test(MT) APIs using an UART interface (serial communcation protocol), which they should do if they are flashed with custom Z-Stack "coordinator" firmware for Zigbee 1.2 or Zigbee 3.0 from the Zigbee2mqtt project.
-
-- https://github.com/Koenkk/Z-Stack-firmware/tree/master/coordinator
-
-The necessary hardware and equipment for flashing firmware and the device preparation process is best described by the [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project whos community develops the custom Z-Stack coordinator firmware that this zigpy-cc libary requires.
-
-The [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project has intructions for several alternative metods on how to initially flash their special Z-Stack coordinator firmware on a new CC253x, CC26x2R, CC13x2, CC2538 or other Texas Instruments CCxxxx based USB adapters and development boards that does not have a bootloader. They also have a FAQ and knowledgebase that can be useful for working with these supported hardware adapters/equipment as well as with Zigbee devices.
-
-- https://www.zigbee2mqtt.io/information/supported_adapters.html
-- https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html
-- https://www.zigbee2mqtt.io/getting_started/flashing_the_cc2531.html
-- https://www.zigbee2mqtt.io/information/alternative_flashing_methods.html
-
-## Port configuration
-
-- To configure __usb__ port path for your TI CC serial device, just specify the TTY (serial com) port, example : `/dev/ttyACM0`
-    - Alternatively you could try to set just port to `auto` to enable automatic usb port discovery (not garanteed to work).
-- Texas Instruments default recommend Baud rate of CC253x serial device is 115200 (this could be different for other TI CC chips).
-
-# Toubleshooting 
-
-For toubleshooting with Home Assistant, the general recommendation is to first only enable DEBUG logging for homeassistant.core and homeassistant.components.zha in Home Assistant, then look in the home-assistant.log file and try to get the Home Assistant community to exhausted their combined troubleshooting knowledge of the ZHA component before posting issue directly to a radio library like zigpy-cc.
-
-That is, begin with checking debug logs for Home Assistant core and the ZHA component first, (troubleshooting/debugging from the top down instead of from the bottom up), trying to getting help via Home Assistant community forum before moving on to posting debug logs to zigpy and zigpy-cc. This is to general suggestion to help filter away common problems and not flood the zigpy-cc developer(s) with to many logs.
-
-Please also try the very latest versions of zigpy and zigpy-cc, (see the section above about "Testing new releases"), and only if you still have the same issues with the latest versions then enable debug logging for zigpy and zigpy_cc in Home Assistant in addition to core and zha. Once enabled debug logging for all those libraries in Home Assistant you should try to reproduce the problem and then raise an issue in zigpy-cc repo with a copy of those logs.
-
-To enable debugging in Home Assistant to get debug logs, either update logger configuration section in configuration.yaml or call logger.set_default_level service with {"level": "debug"} data. Check logger component configuration where you want something this in your configuration.yaml
-
-  logger:
-  default: info
-  logs:
-  asyncio: debug
-  homeassistant.core: debug
-  homeassistant.components.zha: debug
-  zigpy: debug
-  zigpy_cc: debug
 
 # Releases via PyPI
 
