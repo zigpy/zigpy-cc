@@ -97,6 +97,13 @@ If you are using Supervised Home Assistant (formerly known as the Hassio/Hass.io
   where 0.2.3 is the new version
 - Start the addon
 
+This version will persist even so you update HA core.
+You can remove custom deps with this config:
+  ```
+  pypi: []
+  apk: []
+  ```
+  
 If you are instead using some custom python installation of Home Assistant then do this:
 - Activate your python virtual env
 - Update package with ``pip``
