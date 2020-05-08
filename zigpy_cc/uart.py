@@ -19,6 +19,12 @@ PositionCmd1 = 3
 MinMessageLength = 5
 MaxDataSize = 250
 
+''''
+0451:     Texas Instruments
+1a86:7523 QinHeng Electronics HL-340 USB-Serial adapter
+          used in zzh - https://electrolama.com/projects/zig-a-zig-ah/
+'''
+usb_regexp = "0451:|1a86:7523"
 
 class Parser:
     def __init__(self) -> None:
@@ -160,7 +166,7 @@ async def connect(port, baudrate, api, loop=None):
     protocol = Gateway(api, connected_future)
 
     if port == "auto":
-        devices = list(serial.tools.list_ports.grep("0451:"))
+        devices = list(serial.tools.list_ports.grep(usb_regexp))
         if devices:
             port = devices[0].device
             LOGGER.info("%s found at %s", devices[0].product, port)
