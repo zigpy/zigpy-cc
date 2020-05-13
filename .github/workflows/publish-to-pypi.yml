@@ -17,9 +17,11 @@ jobs:
     - name: Install wheel
       run: >-
         pip install wheel
-    - name: Build
+    - name: Update version
       run: >-
         python3 version.py ${{ github.ref }}
+    - name: Build
+      run: >-
         python3 setup.py sdist bdist_wheel
     - name: Publish distribution to PyPI
       uses: pypa/gh-action-pypi-publish@master
