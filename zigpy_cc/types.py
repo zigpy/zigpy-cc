@@ -24,6 +24,7 @@ class LedMode(uint8_t, enum.Enum):
     Flash = 3
     Toggle = 4
 
+
 class ZnpVersion(uint8_t, enum.Enum):
     zStack12 = 0
     zStack3x0 = 1

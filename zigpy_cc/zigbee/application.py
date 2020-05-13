@@ -357,7 +357,9 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             try:
                 loop = asyncio.get_event_loop()
                 loop.create_task(
-                    self._api.request(Subsystem.UTIL, "ledControl", {"ledid": 3, "mode": mode})
+                    self._api.request(
+                        Subsystem.UTIL, "ledControl", {"ledid": 3, "mode": mode}
+                    )
                 )
             except Exception as ex:
                 LOGGER.warning("Can't set LED: %s", ex)

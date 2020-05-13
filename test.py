@@ -80,7 +80,7 @@ async def main():
     await app.startup(auto_form=False)
     await app.form_network()
 
-    #await app.permit_ncp()
+    # await app.permit_ncp()
 
 
 loop.run_until_complete(main())
