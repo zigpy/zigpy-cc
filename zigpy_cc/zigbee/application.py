@@ -15,7 +15,7 @@ from zigpy_cc import __version__, types as t
 from zigpy_cc.api import API
 from zigpy_cc.config import CONF_DEVICE, CONFIG_SCHEMA, SCHEMA_DEVICE
 from zigpy_cc.exception import TODO, CommandError
-from zigpy_cc.types import NetworkOptions, Subsystem, ZnpVersion
+from zigpy_cc.types import NetworkOptions, Subsystem, ZnpVersion, LedMode
 from zigpy_cc.zigbee.start_znp import start_znp
 from zigpy_cc.zpi_object import ZpiObject
 
@@ -118,6 +118,8 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             self._api, self.version["product"], options, 0x0B84, backupPath
         )
         LOGGER.debug("ZNP started, status: %s", status)
+
+        self.set_led(LedMode.Off)
 
     async def mrequest(
         self,
@@ -280,13 +282,6 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         if obj.type != t.CommandType.AREQ:
             return
 
-        # if obj.subsystem == t.Subsystem.ZDO and obj.command == 'tcDeviceInd':
-        #     nwk = obj.payload['nwkaddr']
-        #     rest = obj.payload['extaddr'][2:].encode("ascii")
-        #     ieee, _ = zigpy.types.EUI64.deserialize(rest)
-        #     LOGGER.info("New device joined: 0x%04x, %s", nwk, ieee)
-        #     self.handle_join(nwk, ieee, obj.payload['parentaddr'])
-
         frame = obj.to_unpi_frame()
 
         nwk = obj.payload["srcaddr"] if "srcaddr" in obj.payload else None
@@ -301,19 +296,17 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             nwk = obj.payload["nwkaddr"]
             LOGGER.info("New device joined: 0x%04x, %s", nwk, ieee)
             self.handle_join(nwk, ieee, 0)
-            # TODO TEST
             obj.sequence = 0
-
-        # TODO bindRsp
 
         if obj.command in IGNORED:
             LOGGER.debug("message ignored: %s", obj.command)
             return
 
+        if obj.subsystem == t.Subsystem.ZDO and obj.command == "mgmtPermitJoinRsp":
+            self.set_led(LedMode.On)
+
         if obj.subsystem == t.Subsystem.ZDO and obj.command == "permitJoinInd":
-            # if obj.payload["duration"] == 0:
-            #     loop = asyncio.get_event_loop()
-            #     loop.create_task(self.permit_ncp())
+            self.set_led(LedMode.Off if obj.payload["duration"] == 0 else LedMode.On)
             return
 
         if obj.subsystem == t.Subsystem.ZDO and obj.command in REQUESTS:
@@ -355,10 +348,19 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             return
 
         device.radio_details(lqi, rssi)
-        # if obj.subsystem == t.Subsystem.ZDO:
-        #     pass
+
         LOGGER.info("handle_message %s", obj.command)
         self.handle_message(device, profile_id, cluster_id, src_ep, dst_ep, data)
+
+    def set_led(self, mode: LedMode):
+        if self.version["product"] != ZnpVersion.zStack3x0:
+            try:
+                loop = asyncio.get_event_loop()
+                loop.create_task(
+                    self._api.request(Subsystem.UTIL, "ledControl", {"ledid": 3, "mode": mode})
+                )
+            except Exception as ex:
+                LOGGER.warning("Can't set LED: %s", ex)
 
 
 class Coordinator(zigpy.device.Device):

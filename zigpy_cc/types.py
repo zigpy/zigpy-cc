@@ -17,6 +17,13 @@ class Timeouts:
     default = 10000
 
 
+class LedMode(uint8_t, enum.Enum):
+    Off = 0
+    On = 1
+    Blink = 2
+    Flash = 3
+    Toggle = 4
+
 class ZnpVersion(uint8_t, enum.Enum):
     zStack12 = 0
     zStack3x0 = 1

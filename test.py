@@ -3,15 +3,23 @@ import logging
 import os
 
 import coloredlogs as coloredlogs
-from serial import SerialException
-
+from zigpy_cc import config
 from zigpy.device import Device
 
-from zigpy_cc.api import API
 from zigpy_cc.zigbee import application
 
 fmt = "%(name)s %(levelname)s %(message)s"
 coloredlogs.install(level="DEBUG", fmt=fmt)
+
+APP_CONFIG = {
+    config.CONF_DEVICE: {
+        config.CONF_DEVICE_PATH: "auto",
+        config.CONF_DEVICE_BAUDRATE: 115200,
+        # config.CONF_FLOW_CONTROL: "hardware",
+        config.CONF_FLOW_CONTROL: None,
+    },
+    config.CONF_DATABASE: "store.db",
+}
 
 LOGGER = logging.getLogger(__name__)
 
@@ -56,23 +64,13 @@ async def main():
     # noinspection PyUnresolvedReferences
     import zhaquirks  # noqa: F401
 
-    api = API()
-    while True:
-        try:
-            await api.connect("auto")
-            break
-        except SerialException as e:
-            print(e)
-            await asyncio.sleep(2)
-
-    db = "store.db"
     try:
-        app = application.ControllerApplication(api, database_file=db)
+        app = application.ControllerApplication(APP_CONFIG)
     except KeyError:
         LOGGER.error("DB error, removing DB...")
         await asyncio.sleep(1)
-        os.remove(db)
-        app = application.ControllerApplication(api, database_file=db)
+        os.remove(APP_CONFIG[config.CONF_DATABASE])
+        app = application.ControllerApplication(APP_CONFIG)
 
     testapp = TestApp()
 
@@ -82,7 +80,7 @@ async def main():
     await app.startup(auto_form=False)
     await app.form_network()
 
-    await app.permit_ncp()
+    #await app.permit_ncp()
 
 
 loop.run_until_complete(main())
