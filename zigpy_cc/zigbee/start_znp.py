@@ -52,7 +52,7 @@ Endpoints = [
         endpoint=13,
         appprofid=0x0104,
         appnuminclusters=1,
-        appoutclusterlist=[Ota.cluster_id],
+        appinclusterlist=[Ota.cluster_id],
     ),
     # Insta/Jung/Gira: OTA fallback EP (since it's buggy in firmware 10023202
     # when it tries to find a matching EP for OTA - it queries for ZLL profile,
