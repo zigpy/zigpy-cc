@@ -29,6 +29,28 @@ The zigpy-cc library is currently being tested by developers with Texas Instrume
   - [CC1352P-2 dev board hardware flashed with custom Z-Stack 3.0 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
   - [CC2538 + CC2592 dev board hardware flashed with custom Z-Stack 3.0 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
   
+## Texas Instruments Chip Part Numbers
+Texas Instruments (TI) has quite a few different wireless MCU chips and they are all used/mentioned in open-source Zigbee world which can be daunting if you are just starting out. Here is a quick summary of part numbers and key features.
+
+### Older generation TI chips
+- CC2530 = 2.4GHz Zigbee and IEEE 802.15.4 wireless MCU. 8051 core, has very little RAM. Needs expensive compiler license for official TI stack.
+- CC2531 = CC2530 with built-in USB. Used in the cheap "Zigbee sticks" sold everywhere.
+- CC2538 = CC2538 2.4GHz Zigbee and IEEE 802.15.4 wireless MCU. Powerful ARM Cortex-M3 CPU core, up to 32KB of RAM, and and up to 512KB on-chip flash.
+
+### Newer generation TI chips
+
+#### 2.4GHz frequency only chips
+- CC2652R = 2.4GHz only wireless MCU for IEEE 802.15.4 multi-protocol (Zigbee, Bluetooth, Thread, IEEE 802.15.4g IPv6-enabled smart objects like 6LoWPAN, and proprietary systems). Cortex-M0 core for radio stack and Cortex-M4F core for application use, plenty of RAM. Free compiler option from TI.
+- CC2652RB = Pin compatible "Crystal-less" CC2652R (so you could use it if you were to build your own zzh and omit the crystal) but not firmware compatible.
+- CC2652P = CC2652R with a built-in RF PA. Not pin or firmware compatible with CC2652R/CC2652RB. 
+
+#### Multi frequency chips
+- CC1352R = Sub 1 GHz & 2.4 GHz wireless MCU. Essentially CC2652R with an extra sub-1GHz radio.
+- CC1352P = CC1352R with a built in RF PA.
+
+### Auxiliary TI chips
+- CC2591 and CC2592 = 2.4 GHz range extenders. These are not wireless MCUs, just auxillary PA (Power Amplifier) and LNA (Low Noise Amplifier) in the same package to improve RF (Radio Frequency) range of any 2.4 GHz radio chip.
+  
 ## Firmware requirement
 Firmware requirement is that they support Texas Instruments "Z-Stack Monitor and Test" APIs using an UART interface (serial communcation protocol), which they should do if they are flashed with custom Z-Stack "coordinator" firmware for Zigbee 1.2 or Zigbee 3.0 from the Zigbee2mqtt project.
 
