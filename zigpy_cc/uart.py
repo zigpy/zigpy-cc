@@ -5,6 +5,7 @@ from typing import Any, Dict
 import serial
 import serial.tools.list_ports
 import serial_asyncio
+from serial.tools.list_ports_common import ListPortInfo
 
 from zigpy_cc.config import CONF_DEVICE_BAUDRATE, CONF_DEVICE_PATH, CONF_FLOW_CONTROL
 import zigpy_cc.types as t
@@ -66,7 +67,7 @@ class UnpiFrame(t.Repr):
         length=None,
         fcs=None,
     ):
-        self.type = t.CommandType(command_type)
+        self.command_type = t.CommandType(command_type)
         self.subsystem = t.Subsystem(subsystem)
         self.command_id = command_id
         self.data = data
@@ -99,7 +100,7 @@ class UnpiFrame(t.Repr):
 
     def to_buffer(self):
         length = len(self.data)
-        cmd0 = ((self.type << 5) & 0xE0) | (self.subsystem & 0x1F)
+        cmd0 = ((self.command_type << 5) & 0xE0) | (self.subsystem & 0x1F)
 
         res = bytes([SOF, length, cmd0, self.command_id])
         res += self.data
@@ -159,6 +160,19 @@ class Gateway(asyncio.Protocol):
             self._api.connection_lost()
 
 
+def detect_port() -> ListPortInfo:
+    devices = list(serial.tools.list_ports.grep(usb_regexp))
+    if len(devices) < 1:
+        raise serial.SerialException("Unable to find TI CC device using auto mode")
+    if len(devices) > 1:
+        raise serial.SerialException(
+            "Unable to select TI CC device, multiple devices found: {}".format(
+                ", ".join(map(lambda d: str(d), devices))
+            )
+        )
+    return devices[0]
+
+
 async def connect(config: Dict[str, Any], api, loop=None) -> Gateway:
     if loop is None:
         loop = asyncio.get_event_loop()
@@ -168,13 +182,9 @@ async def connect(config: Dict[str, Any], api, loop=None) -> Gateway:
 
     port, baudrate = config[CONF_DEVICE_PATH], config[CONF_DEVICE_BAUDRATE]
     if port == "auto":
-        devices = list(serial.tools.list_ports.grep(usb_regexp))
-        if devices:
-            port = devices[0].device
-            LOGGER.info("%s found at %s", devices[0].product, port)
-        else:
-            LOGGER.error("Unable to find TI CC device using auto mode")
-            raise serial.SerialException("Unable to find TI CC device using auto mode")
+        device = detect_port()
+        LOGGER.info("Auto select TI CC device: %s", device)
+        port = device.device
 
     xonxoff, rtscts = False, False
     if config[CONF_FLOW_CONTROL] == "hardware":

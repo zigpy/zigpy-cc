@@ -1,6 +1,6 @@
-import zigpy_cc.types as t
-from zigpy.types import EUI64, NWK
+from zigpy.types import EUI64, Group, NWK
 
+import zigpy_cc.types as t
 from zigpy_cc.buffalo import Buffalo, BuffaloOptions
 
 ieeeAddr1 = {
@@ -24,6 +24,12 @@ def test_write_ieee2():
     data_out = Buffalo(b"")
     data_out.write_parameter(t.ParameterType.IEEEADDR, ieeeAddr2["string"], {})
     assert ieeeAddr2["hex"] == data_out.buffer
+
+
+def test_write_ieee_group():
+    data_out = Buffalo(b"")
+    data_out.write_parameter(t.ParameterType.IEEEADDR, Group(2), {})
+    assert b"\x02\x00\x00\x00\x00\x00\x00\x00" == data_out.buffer
 
 
 def test_read_ieee():

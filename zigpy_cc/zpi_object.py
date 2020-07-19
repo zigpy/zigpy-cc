@@ -27,7 +27,7 @@ BufferAndListTypes = [
 class ZpiObject:
     def __init__(
         self,
-        type,
+        command_type,
         subsystem,
         command: str,
         commandId,
@@ -35,8 +35,8 @@ class ZpiObject:
         parameters,
         sequence=None,
     ):
-        self.type = type
-        self.subsystem = subsystem
+        self.command_type = CommandType(command_type)
+        self.subsystem = Subsystem(subsystem)
         self.command = command
         self.command_id = commandId
         self.payload = payload
@@ -55,7 +55,9 @@ class ZpiObject:
             value = self.payload[p["name"]]
             data.write_parameter(p["parameterType"], value, {})
 
-        return uart.UnpiFrame(self.type, self.subsystem, self.command_id, data.buffer)
+        return uart.UnpiFrame(
+            self.command_type, self.subsystem, self.command_id, data.buffer
+        )
 
     @classmethod
     def from_command(cls, subsystem, command, payload):
@@ -72,21 +74,41 @@ class ZpiObject:
             c for c in Definition[frame.subsystem] if c["ID"] == frame.command_id
         )
         parameters = (
-            cmd["response"] if frame.type == CommandType.SRSP else cmd["request"]
+            cmd["response"]
+            if frame.command_type == CommandType.SRSP
+            else cmd["request"]
         )
         payload = cls.read_parameters(frame.data, parameters)
 
         return cls(
-            frame.type, frame.subsystem, cmd["name"], cmd["ID"], payload, parameters
+            frame.command_type,
+            frame.subsystem,
+            cmd["name"],
+            cmd["ID"],
+            payload,
+            parameters,
         )
 
     @classmethod
     def from_cluster(
-        cls, nwk, profile, cluster, src_ep, dst_ep, sequence, data, req_id, *, radius=30
+        cls,
+        nwk,
+        profile,
+        cluster,
+        src_ep,
+        dst_ep,
+        sequence,
+        data,
+        *,
+        radius=30,
+        group=None
     ):
         if profile == zha.PROFILE_ID:
             subsystem = Subsystem.AF
-            cmd = next(c for c in Definition[subsystem] if c["ID"] == 1)
+            if group is None:
+                cmd = next(c for c in Definition[subsystem] if c["ID"] == 1)
+            else:
+                cmd = next(c for c in Definition[subsystem] if c["ID"] == 2)
         else:
             subsystem = Subsystem.ZDO
             cmd = next(c for c in Definition[subsystem] if c["ID"] == cluster)
@@ -101,7 +123,22 @@ class ZpiObject:
                 "destendpoint": dst_ep,
                 "srcendpoint": src_ep,
                 "clusterid": cluster,
-                "transid": req_id,
+                "transid": sequence,
+                "options": 0,
+                "radius": radius,
+                "len": len(data),
+                "data": data,
+            }
+        elif name == "dataRequestExt":
+            payload = {
+                # 1: group
+                "dstaddrmode": 1,
+                "dstaddr": group,
+                "destendpoint": 0xFF,
+                "dstpanid": 0,
+                "srcendpoint": src_ep or 1,
+                "clusterid": cluster,
+                "transid": sequence,
                 "options": 0,
                 "radius": radius,
                 "len": len(data),
@@ -161,7 +198,7 @@ class ZpiObject:
         return res
 
     def __repr__(self) -> str:
-        command_type = CommandType(self.type).name
+        command_type = CommandType(self.command_type).name
         subsystem = Subsystem(self.subsystem).name
         return "{} {} {} tsn: {} {}".format(
             command_type, subsystem, self.command, self.sequence, self.payload

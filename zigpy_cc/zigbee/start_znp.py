@@ -1,8 +1,9 @@
+import asyncio
 import logging
 import os
 
 from zigpy.zcl.clusters.general import Ota
-from zigpy.zcl.clusters.security import IasZone
+from zigpy.zcl.clusters.security import IasZone, IasWd
 
 from zigpy_cc.api import API
 from zigpy_cc.const import Constants
@@ -10,7 +11,6 @@ from zigpy_cc.types import NetworkOptions, Subsystem, ZnpVersion, CommandType
 from zigpy_cc.exception import CommandError
 from zigpy_cc.zigbee.backup import Restore
 from zigpy_cc.zigbee.common import Common
-from zigpy_cc.zigbee.utils import getChannelMask
 from .nv_items import Items
 
 LOGGER = logging.getLogger(__name__)
@@ -42,8 +42,8 @@ Endpoints = [
         endpoint=11,
         appprofid=0x0104,
         appdeviceid=0x0400,
-        appnumoutclusters=1,
-        appoutclusterlist=[IasZone.cluster_id],
+        appnumoutclusters=2,
+        appoutclusterlist=[IasZone.cluster_id, IasWd.cluster_id],
     ),
     # TERNCY: https://github.com/Koenkk/zigbee-herdsman/issues/82
     Endpoint(endpoint=0x6E, appprofid=0x0104),
@@ -70,7 +70,7 @@ async def validate_item(
     command="osalNvRead",
     expected_status=None,
 ):
-    result = await znp.request(subsystem, command, item, expected_status)
+    result = await znp.request(subsystem, command, item, None, expected_status)
     if result.payload["value"] != item["value"]:
         msg = "Item '{}' is invalid, got '{}', expected '{}'".format(
             message, result.payload["value"], item["value"]
@@ -138,7 +138,9 @@ async def boot(znp: API):
         started = znp.wait_for(
             CommandType.AREQ, Subsystem.ZDO, "stateChangeInd", {"state": 9}, 60000
         )
-        await znp.request(Subsystem.ZDO, "startupFromApp", {"startdelay": 100}, [0, 1])
+        await znp.request(
+            Subsystem.ZDO, "startupFromApp", {"startdelay": 100}, None, [0, 1]
+        )
         await started.wait()
         LOGGER.info("ZNP started as coordinator")
     else:
@@ -148,17 +150,16 @@ async def boot(znp: API):
 async def registerEndpoints(znp: API):
     LOGGER.debug("Register endpoints...")
 
-    activeEpResponse = znp.wait_for(CommandType.AREQ, Subsystem.ZDO, "activeEpRsp")
-    try:
-        await znp.request(
+    active_ep_response = znp.wait_for(CommandType.AREQ, Subsystem.ZDO, "activeEpRsp")
+    asyncio.create_task(
+        znp.request(
             Subsystem.ZDO, "activeEpReq", {"dstaddr": 0, "nwkaddrofinterest": 0}
         )
-    except Exception as e:
-        LOGGER.debug(e)
-    activeEp = await activeEpResponse.wait()
+    )
+    active_ep = await active_ep_response.wait()
 
     for endpoint in Endpoints:
-        if endpoint.endpoint in activeEp.payload["activeeplist"]:
+        if endpoint.endpoint in active_ep.payload["activeeplist"]:
             LOGGER.debug("Endpoint '%s' already registered", endpoint.endpoint)
         else:
             LOGGER.debug("Registering endpoint '%s'", endpoint.endpoint)
@@ -194,13 +195,10 @@ async def initialise(znp: API, version, options: NetworkOptions):
         )
 
         # Default link key is already OK for Z-Stack 3 ('ZigBeeAlliance09')
-        channelMask = int.from_bytes(
-            bytes(getChannelMask(options.channelList)), "little"
-        )
         await znp.request(
             Subsystem.APP_CNF,
             "bdbSetChannel",
-            {"isPrimary": 0x1, "channel": channelMask},
+            {"isPrimary": 0x1, "channel": options.channelList},
         )
         await znp.request(
             Subsystem.APP_CNF, "bdbSetChannel", {"isPrimary": 0x0, "channel": 0x0}
@@ -227,14 +225,22 @@ async def initialise(znp: API, version, options: NetworkOptions):
 
     # expect status code 9 (= item created and initialized)
     await znp.request(
-        Subsystem.SYS, "osalNvItemInit", Items.znpHasConfiguredInit(version), [0, 9]
+        Subsystem.SYS,
+        "osalNvItemInit",
+        Items.znpHasConfiguredInit(version),
+        None,
+        [0, 9],
     )
     await znp.request(Subsystem.SYS, "osalNvWrite", Items.znpHasConfigured(version))
 
 
 async def addToGroup(znp: API, endpoint: int, group: int):
     result = await znp.request(
-        Subsystem.ZDO, "extFindGroup", {"endpoint": endpoint, "groupid": group}, [0, 1]
+        Subsystem.ZDO,
+        "extFindGroup",
+        {"endpoint": endpoint, "groupid": group},
+        None,
+        [0, 1],
     )
     if result.payload["status"] == 1:
         await znp.request(

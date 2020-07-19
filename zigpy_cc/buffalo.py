@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 import zigpy.types
 from zigpy_cc.exception import TODO
 from zigpy_cc.types import ParameterType
@@ -27,8 +29,11 @@ class Buffalo:
         elif type == ParameterType.UINT32:
             self.write(value, 4)
         elif type == ParameterType.IEEEADDR:
-            for i in value:
-                self.write(i)
+            if isinstance(value, Iterable):
+                for i in value:
+                    self.write(i)
+            else:
+                self.write(value, 8)
         elif type == ParameterType.BUFFER:
             self.buffer += value
         elif type == ParameterType.LIST_UINT8:

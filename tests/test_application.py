@@ -26,6 +26,7 @@ def app():
     app = application.ControllerApplication(APP_CONFIG)
     app._api = API(APP_CONFIG[config.CONF_DEVICE])
     app._api.set_application(app)
+    app._semaphore = asyncio.Semaphore()
     return app
 
 

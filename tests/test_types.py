@@ -305,7 +305,7 @@ zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128, 'n
 def test_from_cluster_id():
     profile = 0
     obj = ZpiObject.from_cluster(
-        NWK(53322), profile, ZDOCmd.Node_Desc_req, 0, 0, 3, b"\x03\x4a\xd0", 32
+        NWK(53322), profile, ZDOCmd.Node_Desc_req, 0, 0, 3, b"\x03\x4a\xd0"
     )
 
     assert (
@@ -327,11 +327,11 @@ data b'\x00\x0b\x00\x04\x00\x05\x00'
 def test_from_cluster_id_ZCL():
     profile = 260
     obj = ZpiObject.from_cluster(
-        NWK(53322), profile, 0, 1, 1, 1, b"\x00\x0b\x00\x04\x00\x05\x00", 123
+        NWK(53322), profile, 0, 1, 1, 123, b"\x00\x0b\x00\x04\x00\x05\x00"
     )
 
     assert (
-        "SREQ AF dataRequest tsn: 1 {'dstaddr': 53322, 'destendpoint': 1, "
+        "SREQ AF dataRequest tsn: 123 {'dstaddr': 53322, 'destendpoint': 1, "
         "'srcendpoint': 1, 'clusterid': 0, 'transid': 123, 'options': 0, 'radius': 30, "
         "'len': 7, 'data': b'\\x00\\x0b\\x00\\x04\\x00\\x05\\x00'}" == str(obj)
     )
@@ -376,7 +376,7 @@ def test_bind_req():
 
     data = b"\x02<x'\xfe\xffW\x0b\x00\x01\x08\x00\x03\x0c%\xed\x18\x00K\x12\x00\x01"
 
-    obj = ZpiObject.from_cluster(NWK(0x6292), 0, 0x0021, 0, 0, 2, data, 123)
+    obj = ZpiObject.from_cluster(NWK(0x6292), 0, 0x0021, 0, 0, 2, data)
 
     assert (
         "SREQ ZDO bindReq tsn: 2 {"

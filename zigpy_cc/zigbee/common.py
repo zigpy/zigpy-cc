@@ -1,6 +1,6 @@
 import enum
 
-from zigpy_cc.types import uint8_t
+from zigpy.types import uint8_t
 
 
 class NvItemsIds(uint8_t, enum.Enum):

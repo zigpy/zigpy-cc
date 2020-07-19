@@ -1,6 +1,7 @@
+from zigpy.types import ExtendedPanId, Channels
+
 from zigpy_cc.types import ZnpVersion
 from zigpy_cc.zigbee.common import NvItemsIds
-from zigpy_cc.zigbee.utils import getChannelMask
 
 
 class Items:
@@ -36,21 +37,21 @@ class Items:
         }
 
     @staticmethod
-    def extendedPanID(extendedPanID):
+    def extendedPanID(extendedPanID: ExtendedPanId):
         return {
             "id": NvItemsIds.EXTENDED_PAN_ID,
             "len": 0x08,
             "offset": 0x00,
-            "value": bytes(extendedPanID),
+            "value": extendedPanID.serialize(),
         }
 
     @staticmethod
-    def channelList(channelList):
+    def channelList(channelList: Channels):
         return {
             "id": NvItemsIds.CHANLIST,
             "len": 0x04,
             "offset": 0x00,
-            "value": bytes(getChannelMask(channelList)),
+            "value": channelList.serialize(),
         }
 
     @staticmethod
