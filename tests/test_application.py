@@ -3,7 +3,7 @@ import asyncio
 from unittest import mock
 
 import pytest
-from zigpy.types import EUI64, Group
+from zigpy.types import EUI64, Group, BroadcastAddress
 import zigpy.zdo.types as zdo_t
 from zigpy.zcl.clusters.general import Groups
 
@@ -186,11 +186,32 @@ async def test_mrequest(app: application.ControllerApplication):
 
     assert 1 == len(app._api._waiters)
     assert (
-        "SREQ AF dataRequestExt tsn: 39 {'dstaddrmode': 1, 'dstaddr': 0x0002, 'destendpoint': 255, 'dstpanid': 0, "
+        "SREQ AF dataRequestExt tsn: 39 {'dstaddrmode': <AddressMode.ADDR_GROUP: 1>, "
+        "'dstaddr': 0x0002, 'destendpoint': 255, 'dstpanid': 0, "
         "'srcendpoint': 1, 'clusterid': 4, 'transid': 39, 'options': 0, 'radius': 30, 'len': 3, "
         "'data': b\"\\x01'\\x00\"}" == str(app._api.request_raw.call_args[0][0])
     )
     assert (0, "message send success") == res
+
+
+@pytest.mark.asyncio
+async def test_broadcast(app: application.ControllerApplication):
+    fut = asyncio.Future()
+    fut.set_result(None)
+    app._api.request_raw = mock.MagicMock(return_value=fut)
+
+    # broadcast (0, 54, 0, 0, 0, 0, 45, b'-<\x00', <BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR: 65532>)
+    res = await app.broadcast(
+        0, 54, 0, 0, 0, 0, 45, b"-<\x00", BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR
+    )
+
+    assert 0 == len(app._api._waiters)
+    assert (
+        "SREQ ZDO mgmtPermitJoinReq tsn: 45 {'addrmode': <AddressMode.ADDR_BROADCAST: 15>, "
+        "'dstaddr': 0xfffc, 'duration': 60, 'tcsignificance': 0}"
+        == str(app._api.request_raw.call_args[0][0])
+    )
+    assert (0, "broadcast send success") == res
 
 
 """

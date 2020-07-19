@@ -2,14 +2,13 @@ from collections.abc import Iterable
 
 import zigpy.types
 from zigpy_cc.exception import TODO
-from zigpy_cc.types import ParameterType
+from zigpy_cc.types import AddressMode, ParameterType
 
 
 class BuffaloOptions:
     def __init__(self) -> None:
         self.startIndex = None
         self.length = None
-        self.is_address = False
 
 
 class Buffalo:
@@ -68,12 +67,19 @@ class Buffalo:
         self.write(value["depth"])
         self.write(value["lqi"])
 
-    def read_parameter(self, type, options):
+    def read_parameter(self, name, type, options):
+
         if type == ParameterType.UINT8:
             res = self.read_int()
+            if name.endswith("addrmode"):
+                res = AddressMode(res)
         elif type == ParameterType.UINT16:
             res = self.read_int(2)
-            if options.is_address:
+            if (
+                name.endswith("addr")
+                or name.endswith("address")
+                or name.endswith("addrofinterest")
+            ):
                 res = zigpy.types.NWK(res)
         elif type == ParameterType.UINT32:
             res = self.read_int(4)

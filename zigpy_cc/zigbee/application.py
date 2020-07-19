@@ -16,7 +16,7 @@ from zigpy_cc import __version__, types as t
 from zigpy_cc.api import API
 from zigpy_cc.config import CONF_DEVICE, CONFIG_SCHEMA, SCHEMA_DEVICE
 from zigpy_cc.exception import TODO, CommandError
-from zigpy_cc.types import NetworkOptions, Subsystem, ZnpVersion, LedMode
+from zigpy_cc.types import NetworkOptions, Subsystem, ZnpVersion, LedMode, AddressMode
 from zigpy_cc.zigbee.start_znp import start_znp
 from zigpy_cc.zpi_object import ZpiObject
 
@@ -178,7 +178,14 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         )
         try:
             obj = ZpiObject.from_cluster(
-                0, profile, cluster, src_ep, 0xFF, sequence, data, group=group_id
+                group_id,
+                profile,
+                cluster,
+                src_ep or 1,
+                0xFF,
+                sequence,
+                data,
+                addr_mode=AddressMode.ADDR_GROUP,
             )
             waiter_id = None
             waiter = self._api.create_response_waiter(obj, sequence)
@@ -281,10 +288,17 @@ class ControllerApplication(zigpy.application.ControllerApplication):
                 sequence,
                 data,
                 radius=radius,
+                addr_mode=AddressMode.ADDR_16BIT,
             )
 
             async with self._semaphore:
                 await self._api.request_raw(obj)
+                """
+                As a broadcast command is not confirmed and thus immediately returns
+                (contrary to network address requests) we will give the
+                command some time to 'settle' in the network.
+                """
+                await asyncio.sleep(0.2)
 
         except CommandError as ex:
             return (
@@ -297,7 +311,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
     async def permit_ncp(self, time_s=60):
         assert 0 <= time_s <= 254
         payload = {
-            "addrmode": 0x0F,
+            "addrmode": AddressMode.ADDR_BROADCAST,
             "dstaddr": BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR,
             "duration": time_s,
             "tcsignificance": 0,

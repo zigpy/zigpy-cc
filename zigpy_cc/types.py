@@ -18,6 +18,14 @@ class Timeouts:
     default = 10000
 
 
+class AddressMode(t.uint8_t, enum.Enum):
+    ADDR_NOT_PRESENT = 0
+    ADDR_GROUP = 1
+    ADDR_16BIT = 2
+    ADDR_64BIT = 3
+    ADDR_BROADCAST = 15
+
+
 class LedMode(t.uint8_t, enum.Enum):
     Off = 0
     On = 1

@@ -4,7 +4,7 @@ from zigpy.types import BroadcastAddress
 from zigpy_cc import uart
 from zigpy_cc.buffalo import Buffalo, BuffaloOptions
 from zigpy_cc.definition import Definition
-from zigpy_cc.types import CommandType, ParameterType, Subsystem
+from zigpy_cc.types import CommandType, ParameterType, Subsystem, AddressMode
 
 BufferAndListTypes = [
     ParameterType.BUFFER,
@@ -30,7 +30,7 @@ class ZpiObject:
         command_type,
         subsystem,
         command: str,
-        commandId,
+        command_id,
         payload,
         parameters,
         sequence=None,
@@ -38,7 +38,7 @@ class ZpiObject:
         self.command_type = CommandType(command_type)
         self.subsystem = Subsystem(subsystem)
         self.command = command
-        self.command_id = commandId
+        self.command_id = command_id
         self.payload = payload
         self.parameters = parameters
         self.sequence = sequence
@@ -101,11 +101,11 @@ class ZpiObject:
         data,
         *,
         radius=30,
-        group=None
+        addr_mode=None
     ):
         if profile == zha.PROFILE_ID:
             subsystem = Subsystem.AF
-            if group is None:
+            if addr_mode is None:
                 cmd = next(c for c in Definition[subsystem] if c["ID"] == 1)
             else:
                 cmd = next(c for c in Definition[subsystem] if c["ID"] == 2)
@@ -131,12 +131,11 @@ class ZpiObject:
             }
         elif name == "dataRequestExt":
             payload = {
-                # 1: group
-                "dstaddrmode": 1,
-                "dstaddr": group,
-                "destendpoint": 0xFF,
+                "dstaddrmode": addr_mode,
+                "dstaddr": nwk,
+                "destendpoint": dst_ep,
                 "dstpanid": 0,
-                "srcendpoint": src_ep or 1,
+                "srcendpoint": src_ep,
                 "clusterid": cluster,
                 "transid": sequence,
                 "options": 0,
@@ -146,7 +145,9 @@ class ZpiObject:
             }
         elif name == "mgmtPermitJoinReq":
             addrmode = (
-                0x0F if nwk == BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR else 0x02
+                AddressMode.ADDR_BROADCAST
+                if nwk == BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR
+                else AddressMode.ADDR_16BIT
             )
             payload = cls.read_parameters(
                 bytes([addrmode]) + nwk.to_bytes(2, "little") + data[1:], parameters
@@ -168,29 +169,24 @@ class ZpiObject:
         buffalo = Buffalo(data)
         res = {}
         length = None
-        startIndex = None
+        start_index = None
         for p in parameters:
             options = BuffaloOptions()
             name = p["name"]
-            if (
-                name.endswith("addr")
-                or name.endswith("address")
-                or name.endswith("addrofinterest")
-            ):
-                options.is_address = True
-            type = p["parameterType"]
-            if type in BufferAndListTypes:
+            param_type = p["parameterType"]
+            if param_type in BufferAndListTypes:
                 if isinstance(length, int):
                     options.length = length
 
-                if type == ParameterType.LIST_ASSOC_DEV:
-                    if isinstance(startIndex, int):
-                        options.startIndex = startIndex
+                if param_type == ParameterType.LIST_ASSOC_DEV:
+                    if isinstance(start_index, int):
+                        options.startIndex = start_index
 
-            res[name] = buffalo.read_parameter(type, options)
-            # For LIST_ASSOC_DEV, we need to grab the startindex which is
+            res[name] = buffalo.read_parameter(name, param_type, options)
+
+            # For LIST_ASSOC_DEV, we need to grab the start_index which is
             # right before the length
-            startIndex = length
+            start_index = length
             # When reading a buffer, assume that the previous parsed parameter
             # contains the length of the buffer
             length = res[name]
