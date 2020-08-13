@@ -3,15 +3,20 @@ import logging
 import os
 
 import coloredlogs as coloredlogs
-from zigpy_cc import config
+import zigpy.config
 from zigpy.device import Device
 
+from zigpy_cc import config
 from zigpy_cc.zigbee import application
 
 fmt = "%(name)s %(levelname)s %(message)s"
 coloredlogs.install(level="DEBUG", fmt=fmt)
 
 APP_CONFIG = {
+    zigpy.config.CONF_NWK: {
+        zigpy.config.CONF_NWK_PAN_ID: 0x2A61,
+        zigpy.config.CONF_NWK_EXTENDED_PAN_ID: "A0:B0:C0:D0:10:20:30:40",
+    },
     config.CONF_DEVICE: {
         config.CONF_DEVICE_PATH: "auto",
         config.CONF_DEVICE_BAUDRATE: 115200,
@@ -80,7 +85,7 @@ async def main():
     await app.startup(auto_form=False)
     await app.form_network()
 
-    # await app.permit_ncp()
+    await app.permit_ncp()
 
 
 loop.run_until_complete(main())

@@ -81,7 +81,7 @@ async def test_command(api, monkeypatch):
 
     for subsystem, commands in Definition.items():
         for cmd in commands:
-            ret = await api._command(subsystem, cmd["name"], mock.sentinel.cmd_data)
+            ret = await api.request(subsystem, cmd["name"], mock.sentinel.cmd_data)
             assert ret is mock.sentinel.cmd_result
             # assert api._api_frame.call_count == 1
             # assert api._api_frame.call_args[0][0] == cmd
@@ -111,7 +111,7 @@ async def test_command_timeout(api, monkeypatch):
     for subsystem, commands in Definition.items():
         for cmd in commands:
             with pytest.raises(asyncio.TimeoutError):
-                await api._command(subsystem, cmd["name"], mock.sentinel.cmd_data)
+                await api.request(subsystem, cmd["name"], mock.sentinel.cmd_data)
             # assert api._api_frame.call_count == 1
             # assert api._api_frame.call_args[0][0] == cmd
             # assert api._api_frame.call_args[0][1] == mock.sentinel.cmd_data

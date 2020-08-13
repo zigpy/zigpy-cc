@@ -1,6 +1,6 @@
-import zigpy_cc.types as t
-from zigpy.types import EUI64, NWK
+from zigpy.types import EUI64, Group, NWK
 
+import zigpy_cc.types as t
 from zigpy_cc.buffalo import Buffalo, BuffaloOptions
 
 ieeeAddr1 = {
@@ -26,15 +26,21 @@ def test_write_ieee2():
     assert ieeeAddr2["hex"] == data_out.buffer
 
 
+def test_write_ieee_group():
+    data_out = Buffalo(b"")
+    data_out.write_parameter(t.ParameterType.IEEEADDR, Group(2), {})
+    assert b"\x02\x00\x00\x00\x00\x00\x00\x00" == data_out.buffer
+
+
 def test_read_ieee():
     data_in = Buffalo(ieeeAddr1["hex"])
-    actual = data_in.read_parameter(t.ParameterType.IEEEADDR, {})
+    actual = data_in.read_parameter("test", t.ParameterType.IEEEADDR, {})
     assert ieeeAddr1["string"] == actual
 
 
 def test_read_ieee2():
     data_in = Buffalo(ieeeAddr2["hex"])
-    actual = data_in.read_parameter(t.ParameterType.IEEEADDR, {})
+    actual = data_in.read_parameter("test", t.ParameterType.IEEEADDR, {})
     assert ieeeAddr2["string"] == actual
 
 
@@ -62,5 +68,5 @@ def test_list_nighbor_lqi():
     data_in = Buffalo(data_out.buffer)
     options = BuffaloOptions()
     options.length = len(value)
-    act = data_in.read_parameter(t.ParameterType.LIST_NEIGHBOR_LQI, options)
+    act = data_in.read_parameter("test", t.ParameterType.LIST_NEIGHBOR_LQI, options)
     assert value == act

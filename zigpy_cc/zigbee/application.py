@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from asyncio.locks import Semaphore
 from typing import Any, Dict, Optional
 
 import zigpy.application
@@ -15,7 +16,7 @@ from zigpy_cc import __version__, types as t
 from zigpy_cc.api import API
 from zigpy_cc.config import CONF_DEVICE, CONFIG_SCHEMA, SCHEMA_DEVICE
 from zigpy_cc.exception import TODO, CommandError
-from zigpy_cc.types import NetworkOptions, Subsystem, ZnpVersion, LedMode
+from zigpy_cc.types import NetworkOptions, Subsystem, ZnpVersion, LedMode, AddressMode
 from zigpy_cc.zigbee.start_znp import start_znp
 from zigpy_cc.zpi_object import ZpiObject
 
@@ -40,11 +41,10 @@ REQUESTS = {
 }
 
 IGNORED = (
-    # "activeEpRsp",
     "bdbComissioningNotifcation",
     "dataConfirm",
     "leaveInd",
-    # "mgmtPermitJoinRsp",
+    "resetInd",
     "srcRtgInd",
     "stateChangeInd",
     "tcDeviceInd",
@@ -52,6 +52,7 @@ IGNORED = (
 
 
 class ControllerApplication(zigpy.application.ControllerApplication):
+    _semaphore: Semaphore
     _api: Optional[API]
     SCHEMA = CONFIG_SCHEMA
     SCHEMA_DEVICE = SCHEMA_DEVICE
@@ -89,7 +90,19 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         LOGGER.info("Starting zigpy-cc version: %s", __version__)
         self._api = await API.new(self, self._config[CONF_DEVICE])
+
+        try:
+            await self._api.request(Subsystem.SYS, "ping", {"capabilities": 1})
+        except CommandError as e:
+            raise Exception("Failed to connect to the adapter(%s)", e)
+
         self.version = await self._api.version()
+
+        concurrent = 16 if self.version["product"] == ZnpVersion.zStack3x0 else 2
+        LOGGER.debug("Adapter concurrent: %d", concurrent)
+
+        self._semaphore = asyncio.Semaphore(concurrent)
+
         ver = ZnpVersion(self.version["product"]).name
         LOGGER.info("Detected znp version '%s' (%s)", ver, self.version)
 
@@ -112,12 +125,14 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
     async def form_network(self, channel=15, pan_id=None, extended_pan_id=None):
         LOGGER.info("Forming network")
-        options = NetworkOptions()
+        LOGGER.debug("Config: %s", self.config)
+        options = NetworkOptions(self.config[zigpy.config.CONF_NWK])
+        LOGGER.debug("NetworkOptions: %s", options)
         backupPath = ""
         status = await start_znp(
             self._api, self.version["product"], options, 0x0B84, backupPath
         )
-        LOGGER.debug("ZNP started, status: %s", status)
+        LOGGER.info("ZNP started, status: %s", status)
 
         self.set_led(LedMode.Off)
 
@@ -149,7 +164,6 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         :returns: return a tuple of a status and an error_message. Original requestor
                   has more context to provide a more meaningful error message
         """
-        req_id = self.get_sequence()
         LOGGER.debug(
             "multicast %s",
             (
@@ -165,10 +179,28 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         )
         try:
             obj = ZpiObject.from_cluster(
-                group_id, profile, cluster, src_ep, src_ep, sequence, data, req_id
+                group_id,
+                profile,
+                cluster,
+                src_ep or 1,
+                0xFF,
+                sequence,
+                data,
+                addr_mode=AddressMode.ADDR_GROUP,
             )
+            waiter_id = None
+            waiter = self._api.create_response_waiter(obj, sequence)
+            if waiter:
+                waiter_id = waiter.id
 
-            await self._api.request_raw(obj)
+            async with self._semaphore:
+                await self._api.request_raw(obj, waiter_id)
+                """
+                As a group command is not confirmed and thus immediately returns
+                (contrary to network address requests) we will give the
+                command some time to 'settle' in the network.
+                """
+                await asyncio.sleep(0.2)
 
         except CommandError as ex:
             return ex.status, "Couldn't enqueue send data multicast: {}".format(ex)
@@ -188,7 +220,6 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         expect_reply=True,
         use_ieee=False,
     ):
-        req_id = self.get_sequence()
         LOGGER.debug(
             "request %s",
             (
@@ -206,12 +237,16 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         try:
             obj = ZpiObject.from_cluster(
-                device.nwk, profile, cluster, src_ep, dst_ep, sequence, data, req_id
+                device.nwk, profile, cluster, src_ep, dst_ep, sequence, data
             )
+            waiter_id = None
             if expect_reply:
-                self._api.create_response_waiter(obj, sequence)
+                waiter = self._api.create_response_waiter(obj, sequence)
+                if waiter:
+                    waiter_id = waiter.id
 
-            await self._api.request_raw(obj)
+            async with self._semaphore:
+                await self._api.request_raw(obj, waiter_id)
 
         except CommandError as ex:
             return ex.status, "Couldn't enqueue send data request: {}".format(ex)
@@ -230,7 +265,6 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         data,
         broadcast_address=zigpy.types.BroadcastAddress.RX_ON_WHEN_IDLE,
     ):
-        req_id = self.get_sequence()
         LOGGER.debug(
             "broadcast %s",
             (
@@ -254,11 +288,18 @@ class ControllerApplication(zigpy.application.ControllerApplication):
                 dst_ep,
                 sequence,
                 data,
-                req_id,
                 radius=radius,
+                addr_mode=AddressMode.ADDR_16BIT,
             )
 
-            await self._api.request_raw(obj)
+            async with self._semaphore:
+                await self._api.request_raw(obj)
+                """
+                As a broadcast command is not confirmed and thus immediately returns
+                (contrary to network address requests) we will give the
+                command some time to 'settle' in the network.
+                """
+                await asyncio.sleep(0.2)
 
         except CommandError as ex:
             return (
@@ -271,15 +312,16 @@ class ControllerApplication(zigpy.application.ControllerApplication):
     async def permit_ncp(self, time_s=60):
         assert 0 <= time_s <= 254
         payload = {
-            "addrmode": 0x0F,
+            "addrmode": AddressMode.ADDR_BROADCAST,
             "dstaddr": BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR,
             "duration": time_s,
             "tcsignificance": 0,
         }
-        await self._api.request(Subsystem.ZDO, "mgmtPermitJoinReq", payload)
+        async with self._semaphore:
+            await self._api.request(Subsystem.ZDO, "mgmtPermitJoinReq", payload)
 
     def handle_znp(self, obj: ZpiObject):
-        if obj.type != t.CommandType.AREQ:
+        if obj.command_type != t.CommandType.AREQ:
             return
 
         frame = obj.to_unpi_frame()
@@ -299,7 +341,6 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             obj.sequence = 0
 
         if obj.command in IGNORED:
-            LOGGER.debug("message ignored: %s", obj.command)
             return
 
         if obj.subsystem == t.Subsystem.ZDO and obj.command == "mgmtPermitJoinRsp":
@@ -330,7 +371,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         else:
             LOGGER.warning(
                 "Unhandled message: %s %s %s",
-                t.CommandType(obj.type),
+                t.CommandType(obj.command_type),
                 t.Subsystem(obj.subsystem),
                 obj.command,
             )
@@ -366,6 +407,11 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
 
 class Coordinator(zigpy.device.Device):
+    """
+    todo add endpoints?
+    @see zStackAdapter.ts - getCoordinator
+    """
+
     @property
     def manufacturer(self):
         return "Texas Instruments"

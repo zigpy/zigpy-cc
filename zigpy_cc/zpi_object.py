@@ -4,7 +4,7 @@ from zigpy.types import BroadcastAddress
 from zigpy_cc import uart
 from zigpy_cc.buffalo import Buffalo, BuffaloOptions
 from zigpy_cc.definition import Definition
-from zigpy_cc.types import CommandType, ParameterType, Subsystem
+from zigpy_cc.types import CommandType, ParameterType, Subsystem, AddressMode
 
 BufferAndListTypes = [
     ParameterType.BUFFER,
@@ -27,18 +27,18 @@ BufferAndListTypes = [
 class ZpiObject:
     def __init__(
         self,
-        type,
+        command_type,
         subsystem,
         command: str,
-        commandId,
+        command_id,
         payload,
         parameters,
         sequence=None,
     ):
-        self.type = type
-        self.subsystem = subsystem
+        self.command_type = CommandType(command_type)
+        self.subsystem = Subsystem(subsystem)
         self.command = command
-        self.command_id = commandId
+        self.command_id = command_id
         self.payload = payload
         self.parameters = parameters
         self.sequence = sequence
@@ -55,7 +55,9 @@ class ZpiObject:
             value = self.payload[p["name"]]
             data.write_parameter(p["parameterType"], value, {})
 
-        return uart.UnpiFrame(self.type, self.subsystem, self.command_id, data.buffer)
+        return uart.UnpiFrame(
+            self.command_type, self.subsystem, self.command_id, data.buffer
+        )
 
     @classmethod
     def from_command(cls, subsystem, command, payload):
@@ -72,21 +74,41 @@ class ZpiObject:
             c for c in Definition[frame.subsystem] if c["ID"] == frame.command_id
         )
         parameters = (
-            cmd["response"] if frame.type == CommandType.SRSP else cmd["request"]
+            cmd["response"]
+            if frame.command_type == CommandType.SRSP
+            else cmd["request"]
         )
         payload = cls.read_parameters(frame.data, parameters)
 
         return cls(
-            frame.type, frame.subsystem, cmd["name"], cmd["ID"], payload, parameters
+            frame.command_type,
+            frame.subsystem,
+            cmd["name"],
+            cmd["ID"],
+            payload,
+            parameters,
         )
 
     @classmethod
     def from_cluster(
-        cls, nwk, profile, cluster, src_ep, dst_ep, sequence, data, req_id, *, radius=30
+        cls,
+        nwk,
+        profile,
+        cluster,
+        src_ep,
+        dst_ep,
+        sequence,
+        data,
+        *,
+        radius=30,
+        addr_mode=None
     ):
         if profile == zha.PROFILE_ID:
             subsystem = Subsystem.AF
-            cmd = next(c for c in Definition[subsystem] if c["ID"] == 1)
+            if addr_mode is None:
+                cmd = next(c for c in Definition[subsystem] if c["ID"] == 1)
+            else:
+                cmd = next(c for c in Definition[subsystem] if c["ID"] == 2)
         else:
             subsystem = Subsystem.ZDO
             cmd = next(c for c in Definition[subsystem] if c["ID"] == cluster)
@@ -101,7 +123,21 @@ class ZpiObject:
                 "destendpoint": dst_ep,
                 "srcendpoint": src_ep,
                 "clusterid": cluster,
-                "transid": req_id,
+                "transid": sequence,
+                "options": 0,
+                "radius": radius,
+                "len": len(data),
+                "data": data,
+            }
+        elif name == "dataRequestExt":
+            payload = {
+                "dstaddrmode": addr_mode,
+                "dstaddr": nwk,
+                "destendpoint": dst_ep,
+                "dstpanid": 0,
+                "srcendpoint": src_ep,
+                "clusterid": cluster,
+                "transid": sequence,
                 "options": 0,
                 "radius": radius,
                 "len": len(data),
@@ -109,7 +145,9 @@ class ZpiObject:
             }
         elif name == "mgmtPermitJoinReq":
             addrmode = (
-                0x0F if nwk == BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR else 0x02
+                AddressMode.ADDR_BROADCAST
+                if nwk == BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR
+                else AddressMode.ADDR_16BIT
             )
             payload = cls.read_parameters(
                 bytes([addrmode]) + nwk.to_bytes(2, "little") + data[1:], parameters
@@ -131,29 +169,24 @@ class ZpiObject:
         buffalo = Buffalo(data)
         res = {}
         length = None
-        startIndex = None
+        start_index = None
         for p in parameters:
             options = BuffaloOptions()
             name = p["name"]
-            if (
-                name.endswith("addr")
-                or name.endswith("address")
-                or name.endswith("addrofinterest")
-            ):
-                options.is_address = True
-            type = p["parameterType"]
-            if type in BufferAndListTypes:
+            param_type = p["parameterType"]
+            if param_type in BufferAndListTypes:
                 if isinstance(length, int):
                     options.length = length
 
-                if type == ParameterType.LIST_ASSOC_DEV:
-                    if isinstance(startIndex, int):
-                        options.startIndex = startIndex
+                if param_type == ParameterType.LIST_ASSOC_DEV:
+                    if isinstance(start_index, int):
+                        options.startIndex = start_index
 
-            res[name] = buffalo.read_parameter(type, options)
-            # For LIST_ASSOC_DEV, we need to grab the startindex which is
+            res[name] = buffalo.read_parameter(name, param_type, options)
+
+            # For LIST_ASSOC_DEV, we need to grab the start_index which is
             # right before the length
-            startIndex = length
+            start_index = length
             # When reading a buffer, assume that the previous parsed parameter
             # contains the length of the buffer
             length = res[name]
@@ -161,7 +194,7 @@ class ZpiObject:
         return res
 
     def __repr__(self) -> str:
-        command_type = CommandType(self.type).name
+        command_type = CommandType(self.command_type).name
         subsystem = Subsystem(self.subsystem).name
         return "{} {} {} tsn: {} {}".format(
             command_type, subsystem, self.command, self.sequence, self.payload

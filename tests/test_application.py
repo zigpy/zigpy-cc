@@ -3,8 +3,9 @@ import asyncio
 from unittest import mock
 
 import pytest
-from zigpy.types import EUI64
+from zigpy.types import EUI64, Group, BroadcastAddress
 import zigpy.zdo.types as zdo_t
+from zigpy.zcl.clusters.general import Groups
 
 from zigpy_cc import types as t
 from zigpy_cc.api import API
@@ -26,6 +27,7 @@ def app():
     app = application.ControllerApplication(APP_CONFIG)
     app._api = API(APP_CONFIG[config.CONF_DEVICE])
     app._api.set_application(app)
+    app._semaphore = asyncio.Semaphore()
     return app
 
 
@@ -62,39 +64,6 @@ def addr_nwk_and_ieee(nwk, ieee):
     addr.address = nwk
     addr.ieee = ieee
     return addr
-
-
-"""
-DEBUG:zigpy_cc.api:--> AREQ ZDO leaveInd {'srcaddr': 406, 'extaddr': '0x07a3c302008d1500', 'request': 0, 'removechildren': 0, 'rejoin': 0}
-DEBUG:zigpy_cc.api:--> AREQ ZDO tcDeviceInd {'nwkaddr': 11938, 'extaddr': '0x07a3c302008d1500', 'parentaddr': 0}
-DEBUG:zigpy_cc.api:--> AREQ ZDO endDeviceAnnceInd {'srcaddr': 11938, 'nwkaddr': 11938, 'ieeeaddr': '0x07a3c302008d1500', 'capabilities': 128}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 0, 'srcaddr': 11938, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 123, 'securityuse': 0, 'timestamp': 1000027, 'transseqnumber': 0, 'len': 25, 'data': bytearray(b'\x18\x00\n\x05\x00B\x12lumi.sensor_switch')}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 0, 'srcaddr': 11938, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 123, 'securityuse': 0, 'timestamp': 1000039, 'transseqnumber': 0, 'len': 7, 'data': bytearray(b'\x18\x01\n\x01\x00 \n')}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 0, 'srcaddr': 11938, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 126, 'securityuse': 0, 'timestamp': 1000050, 'transseqnumber': 0, 'len': 29, 'data': bytearray(b'\x1c4\x12\x02\n\x02\xffL\x06\x00\x10\x01!\xd8\x0b!\xa8\x01$\x00\x00\x00\x00\x00!\xbdJ Y')}
-DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 6595, 'relaycount': 1, 'relaylist': [30485]}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 10, 'srcaddr': 6595, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 60, 'securityuse': 0, 'timestamp': 1069473, 'transseqnumber': 0, 'len': 5, 'data': bytearray(b'\x10\x94\x00\x00\x00')}
-DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 49164, 'relaycount': 2, 'relaylist': [6595, 30485]}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 10, 'srcaddr': 49164, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 60, 'securityuse': 0, 'timestamp': 1117084, 'transseqnumber': 0, 'len': 5, 'data': bytearray(b'\x10\x13\x00\x00\x00')}
-DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 51918, 'relaycount': 0, 'relaylist': []}
-DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 51918, 'relaycount': 0, 'relaylist': []}
-DEBUG:zigpy_cc.api:--> AREQ ZDO endDeviceAnnceInd {'srcaddr': 53322, 'nwkaddr': 53322, 'ieeeaddr': '0x41e54b02008d1500', 'capabilities': 132}
-DEBUG:zigpy_cc.api:--> AREQ ZDO tcDeviceInd {'nwkaddr': 53322, 'extaddr': '0x41e54b02008d1500', 'parentaddr': 51918}
-DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 53322, 'relaycount': 1, 'relaylist': [51918]}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 10, 'srcaddr': 53322, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 39, 'securityuse': 0, 'timestamp': 1137608, 'transseqnumber': 0, 'len': 5, 'data': bytearray(b'\x10\x1d\x00\x00\x00')}
-DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 44052, 'relaycount': 2, 'relaylist': [6595, 30485]}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 18, 'srcaddr': 44052, 'srcendpoint': 2, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 60, 'securityuse': 0, 'timestamp': 1167545, 'transseqnumber': 0, 'len': 8, 'data': bytearray(b'\x18E\nU\x00!\x02\x00')}
-DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 6595, 'relaycount': 1, 'relaylist': [30485]}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 10, 'srcaddr': 6595, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 57, 'securityuse': 0, 'timestamp': 1256953, 'transseqnumber': 0, 'len': 5, 'data': bytearray(b'\x10\xd1\x00\x00\x00')}
-DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 49164, 'relaycount': 2, 'relaylist': [6595, 30485]}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 10, 'srcaddr': 49164, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 57, 'securityuse': 0, 'timestamp': 1310524, 'transseqnumber': 0, 'len': 5, 'data': bytearray(b'\x10\x14\x00\x00\x00')}
-DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 53322, 'relaycount': 1, 'relaylist': [51918]}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 10, 'srcaddr': 53322, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 39, 'securityuse': 0, 'timestamp': 1331211, 'transseqnumber': 0, 'len': 5, 'data': bytearray(b'\x10\x1e\x00\x00\x00')}
-DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 6595, 'relaycount': 1, 'relaylist': [30485]}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 10, 'srcaddr': 6595, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 60, 'securityuse': 0, 'timestamp': 1444466, 'transseqnumber': 0, 'len': 5, 'data': bytearray(b'\x10\x0e\x00\x00\x00')}
-DEBUG:zigpy_cc.api:--> AREQ ZDO srcRtgInd {'dstaddr': 49164, 'relaycount': 2, 'relaylist': [6595, 30485]}
-DEBUG:zigpy_cc.api:--> AREQ AF incomingMsg {'groupid': 0, 'clusterid': 10, 'srcaddr': 49164, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0, 'linkquality': 57, 'securityuse': 0, 'timestamp': 1504140, 'transseqnumber': 0, 'len': 5, 'data': bytearray(b'\x10\x15\x00\x00\x00')}
-DEBUG:zigpy_cc.api:--> AREQ ZDO tcDeviceInd {'nwkaddr': 49164, 'extaddr': '0x7ceb2303008d1500', 'parentaddr': 6595}
-"""
 
 
 def test_join(app):
@@ -199,13 +168,58 @@ async def test_request(app: application.ControllerApplication):
     )
 
     assert len(app._api._waiters) == 1
+    assert (
+        "SREQ ZDO nodeDescReq tsn: 1 {'dstaddr': 0xd04a, 'nwkaddrofinterest': 0x2ea2}"
+        == str(app._api.request_raw.call_args[0][0])
+    )
     assert res == (0, "message send success")
+
+
+@pytest.mark.asyncio
+async def test_mrequest(app: application.ControllerApplication):
+    fut = asyncio.Future()
+    fut.set_result(None)
+    app._api.request_raw = mock.MagicMock(return_value=fut)
+
+    # multicast (0x0002, 260, 6, 1, 39, b"\x01'\x00", 0, 3)
+    res = await app.mrequest(Group(2), 260, Groups.cluster_id, 1, 39, b"\x01'\x00")
+
+    assert 1 == len(app._api._waiters)
+    assert (
+        "SREQ AF dataRequestExt tsn: 39 {'dstaddrmode': <AddressMode.ADDR_GROUP: 1>, "
+        "'dstaddr': 0x0002, 'destendpoint': 255, 'dstpanid': 0, "
+        "'srcendpoint': 1, 'clusterid': 4, 'transid': 39, 'options': 0, 'radius': 30, 'len': 3, "
+        "'data': b\"\\x01'\\x00\"}" == str(app._api.request_raw.call_args[0][0])
+    )
+    assert (0, "message send success") == res
+
+
+@pytest.mark.asyncio
+async def test_broadcast(app: application.ControllerApplication):
+    fut = asyncio.Future()
+    fut.set_result(None)
+    app._api.request_raw = mock.MagicMock(return_value=fut)
+
+    # broadcast (0, 54, 0, 0, 0, 0, 45, b'-<\x00', <BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR: 65532>)
+    res = await app.broadcast(
+        0, 54, 0, 0, 0, 0, 45, b"-<\x00", BroadcastAddress.ALL_ROUTERS_AND_COORDINATOR
+    )
+
+    assert 0 == len(app._api._waiters)
+    assert (
+        "SREQ ZDO mgmtPermitJoinReq tsn: 45 {'addrmode': <AddressMode.ADDR_BROADCAST: 15>, "
+        "'dstaddr': 0xfffc, 'duration': 60, 'tcsignificance': 0}"
+        == str(app._api.request_raw.call_args[0][0])
+    )
+    assert (0, "broadcast send success") == res
 
 
 """
 zigpy_cc.api DEBUG <-- SREQ ZDO nodeDescReq {'dstaddr': 53322, 'nwkaddrofinterest': 0}
 zigpy_cc.api DEBUG --> SRSP ZDO nodeDescReq {'status': 0}
-zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128, 'nwkaddr': 0, 'logicaltype_cmplxdescavai_userdescavai': 0, 'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 0, 'maxbuffersize': 0, 'maxintransfersize': 0, 'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
+zigpy_cc.api DEBUG --> AREQ ZDO nodeDescRsp {'srcaddr': 53322, 'status': 128, 'nwkaddr': 0, 
+    'logicaltype_cmplxdescavai_userdescavai': 0, 'apsflags_freqband': 0, 'maccapflags': 0, 'manufacturercode': 0, 
+    'maxbuffersize': 0, 'maxintransfersize': 0, 'servermask': 0, 'maxouttransfersize': 0, 'descriptorcap': 0}
 """
 
 
