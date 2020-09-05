@@ -19,15 +19,17 @@ Disclaimer: This software is provided "AS IS", without warranty of any kind. The
 # Hardware requirement
 The zigpy-cc library is currently being tested by developers with Texas Instruments CC2531 and CC2652R based adapters/boards as as reference hardware but it should in theory be possible to get it working with work most USB-adapters and GPIO-modules based on Texas Instruments CC Zigbee radio module chips hardware. Note that unless you bought pre-flashed with correct custom firmware you will also have to flash the chip a compatible Z-Stack coordinator firmware before you can use the hardware, please read the firmware requirement section below.
 
-## Reference hardware being tested by zigpy-cc developers
+## Supported reference hardware being tested by zigpy-cc developers
   - [CC2531 USB stick hardware flashed with custom Z-Stack 1.2 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC2652R dev board hardware flashed with custom Z-Stack 3.x coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+  - [CC2652R USB stick and dev board hardware flashed with custom Z-Stack 3.x coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
   
- ## Hardware not activly tested by zigpy-cc developers
-  - [CC2530 + CC2591 USB stick hardware flashed with custom Z-Stack 1.2 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC2530 + CC2592 dev board hardware flashed with custom Z-Stack 1.2 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC1352P-2 dev board hardware flashed with custom Z-Stack 3.0 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+ ## Supported hardware not activly tested by zigpy-cc developers
+  - [CC2530 + CC2591 USB sticks and dev board hardware flashed with custom Z-Stack 1.2 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+  - [CC2530 + CC2592 USB sticks and dev board hardware flashed with custom Z-Stack 1.2 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
   - [CC2538 + CC2592 dev board hardware flashed with custom Z-Stack 3.0 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+  - [CC1352P-2 USB sticks and dev board hardware flashed with custom Z-Stack 3.0 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+  - [CC2652P USB stick and dev board hardware flashed with custom Z-Stack 3.x coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
+  - [CC2652RB USB stick and dev board hardware flashed with custom Z-Stack 3.x coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
   
 ## Texas Instruments Chip Part Numbers
 Texas Instruments (TI) has quite a few different wireless MCU chips and they are all used/mentioned in open-source Zigbee world which can be daunting if you are just starting out. Here is a quick summary of part numbers and key features.
@@ -35,32 +37,32 @@ Texas Instruments (TI) has quite a few different wireless MCU chips and they are
 ### Older generation TI chips
 - CC2530 = 2.4GHz Zigbee and IEEE 802.15.4 wireless MCU. 8051 core, has very little RAM. Needs expensive compiler license for official TI stack.
 - CC2531 = CC2530 with built-in USB. Used in the cheap "Zigbee sticks" sold everywhere.
-- CC2538 = CC2538 2.4GHz Zigbee and IEEE 802.15.4 wireless MCU. Powerful ARM Cortex-M3 CPU core, up to 32KB of RAM, and and up to 512KB on-chip flash.
+- CC2538 = CC2538 2.4GHz Zigbee and IEEE 802.15.4 wireless MCU. CC253x with a more powerful ARM Cortex-M3 CPU core, up to 32KB of RAM, and and up to 512KB on-chip flash. This is the only chip in the CC253x series that Texas Instruments has officially released Zigbee 3.0 (Z-Stack 3.0.x) firmware, however only as an option as it is still not as powerful a the newer generation of TI chips listed bellow.
 
 ### Newer generation TI chips
 
 #### 2.4GHz frequency only chips
 - CC2652R = 2.4GHz only wireless MCU for IEEE 802.15.4 multi-protocol (Zigbee, Bluetooth, Thread, IEEE 802.15.4g IPv6-enabled smart objects like 6LoWPAN, and proprietary systems). Cortex-M0 core for radio stack and Cortex-M4F core for application use, plenty of RAM. Free compiler option from TI.
-- CC2652RB = Pin compatible "Crystal-less" CC2652R (so you could use it if you were to build your own zzh and omit the crystal) but not firmware compatible.
-- CC2652P = CC2652R with a built-in RF PA. Not pin or firmware compatible with CC2652R/CC2652RB. 
+- CC2652RB = Pin compatible "Crystal-less" CC2652R, however not firmware compatible with CC2652R.
+- CC2652P = CC2652R with a built-in RF PA (Power Amplifier) for greatly improved range. Not pin or firmware compatible with CC2652R/CC2652RB. 
 
 #### Multi frequency chips
 - CC1352R = Sub 1 GHz & 2.4 GHz wireless MCU. Essentially CC2652R with an extra sub-1GHz radio.
-- CC1352P = CC1352R with a built in RF PA.
+- CC1352P = CC1352R with a built in RF PA (Power Amplifier) for greatly improved range.
 
 ### Auxiliary TI chips
 - CC2591 and CC2592 = 2.4 GHz range extenders. These are not wireless MCUs, just auxillary PA (Power Amplifier) and LNA (Low Noise Amplifier) in the same package to improve RF (Radio Frequency) range of any 2.4 GHz radio chip.
   
 ## Firmware requirement
-Firmware requirement is that they support Texas Instruments "Z-Stack Monitor and Test" APIs using an UART interface (serial communcation protocol), which they should do if they are flashed with custom Z-Stack "coordinator" firmware for Zigbee 1.2 or Zigbee 3.0 from the Zigbee2mqtt project.
+Firmware requirement is that they support Texas Instruments "Z-Stack Monitor and Test" APIs using an UART interface (serial communcation protocol), which they should do if they are flashed with custom Z-Stack "coordinator" for Zigbee Home Automation 1.2 (Z-Stack Home 1.2) or Zigbee 3.0 (Z-Stack 3.0.x or Z-Stack 3.x.0) firmware from the Zigbee2mqtt project.
 
 - https://github.com/Koenkk/Z-Stack-firmware/tree/master/coordinator
 
 The necessary hardware and equipment for flashing firmware and the device preparation process is best described by the [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project whos community maintain and distribute a custom pre-compiled Z-Stack coordinator firmware (.hex files) for their [Zigbee-Heardsman](https://github.com/Koenkk/zigbee-herdsman/) libary which also makes it compatible with the zigpy-cc library.
 
-CC253x based adapters/boards in general does not come with a bootloader from the factory so needs to first be hardware flashed with a pre-compiled Z-Stack coordinator firmware (.hex file) via a Texas Instruments CC Debugger or a DIY GPIO debug adapter using the official "SmartRF Flash-Programmer" (v1.1x) software from Texas Instruments, or comparative alternative metods and software.
+CC253x based USB adapters, modules and dev boards in general does not come with a bootloader from the factory so needs to first be hardware flashed with a pre-compiled Z-Stack coordinator firmware (.hex file) via a Texas Instruments CC Debugger or a DIY GPIO debug adapter using the official "SmartRF Flash-Programmer" (v1.1x) software from Texas Instruments, or comparative alternative metods and software. These older less powerful chips are only designed for Zigbee Home Automation 1.2 (Z-Stack Home 1.2) firmware as they are not really powerfull enough to run the newer Zigbee 3.0 (Z-Stack 3.0.x) firmware. It should be mentioned that there it is technically possible to run inofficial Zigbee 3.0 (Z-Stack 3.0.x) firmware releases for CC253x, but such newer firmware are generally not recommended on these older adapters if you want to achieve a stable Zigbee network with more than a few paired devices.
 
-CC13x2 and CC26x2 based adapters/boards in general already come with a bootloader from the factory so can be software flashed with a pre-compiled Z-Stack coordinator firmware (.hex file) directly over USB using the official "SmartRF Flash-Programmer-2" (v1.8+) or "UniFlash" (6.x) from Texas Instruments, or comparative alternative metods and software.
+CC13x2/CC13x2x and CC26x2/CC26x2x based USB adapters, modules and dev boards in general already come with a bootloader from the factory so can be software flashed with a pre-compiled Z-Stack coordinator firmware (.hex file) directly over USB using the official "SmartRF Flash-Programmer-2" (v1.8+) or "UniFlash" (6.x) from Texas Instruments, or comparative alternative metods and software. These newer more powerful chips only support newer Zigbee 3.0 (Z-Stack 3.0.x or Z-Stack 3.x.0) firmware.
 
 The [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project has step-by-step intructions for both flashing with Texas Instruments official software as well as several alternative metods on how to initially flash their custom Z-Stack coordinator firmware on a new CC253x, CC13x2, CC26x2 and other Texas Instruments CCxxxx based USB adapters and development boards that comes or do not come with a bootloader. 
 
