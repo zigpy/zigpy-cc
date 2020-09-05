@@ -29,8 +29,8 @@ def test_incoming_msg():
     cls = Cluster.from_id(epmock, 0)
     hdr, data = cls.deserialize(b"\x18\x00\n\x05\x00B\x12lumi.sensor_switch")
     assert (
-        str(data) == "[[<Attribute attrid=5 value="
-        "<TypeValue type=CharacterString, value=lumi.sensor_switch>>]]"
+        str(data) == "[[Attribute(attrid=5, value=<"
+        "TypeValue type=CharacterString, value=lumi.sensor_switch>)]]"
     )
     assert (
         str(hdr) == "<ZCLHeader frame_control=<FrameControl frame_type=GLOBAL_COMMAND "
@@ -93,7 +93,7 @@ def test_from_unpi_frame2():
 
     assert (
         "AREQ AF incomingMsg tsn: None {'groupid': 0, 'clusterid': 1, "
-        "'srcaddr': 0x6dbb, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0,"
+        "'srcaddr': 0x6DBB, 'srcendpoint': 1, 'dstendpoint': 1, 'wasbroadcast': 0,"
         " 'linkquality': 115, 'securityuse': 0, 'timestamp': 3359577, "
         "'transseqnumber': 0, 'len': 9, "
         "'data': b'\\x18\\x01\\x01\\x04\\x00\\x86\\x05\\x00\\x86'}" == str(obj)
@@ -309,7 +309,7 @@ def test_from_cluster_id():
     )
 
     assert (
-        "SREQ ZDO nodeDescReq tsn: 3 {'dstaddr': 0xd04a, 'nwkaddrofinterest': 0xd04a}"
+        "SREQ ZDO nodeDescReq tsn: 3 {'dstaddr': 0xD04A, 'nwkaddrofinterest': 0xD04A}"
         == str(obj)
     )
 
@@ -505,11 +505,11 @@ def test_mgmt_lqi_rsp():
         "'startindex': 0, "
         "'neighborlqilistcount': 3, "
         "'neighborlqilist': ["
-        "{'extPanId': dd:dd:dd:dd:dd:dd:dd:dd, 'extAddr': 14:b4:57:ff:fe:26:24:1d, 'nwkAddr': 0x3eef, "
+        "{'extPanId': dd:dd:dd:dd:dd:dd:dd:dd, 'extAddr': 14:b4:57:ff:fe:26:24:1d, 'nwkAddr': 0x3EEF, "
         "'deviceType': 1, 'rxOnWhenIdle': 1, 'relationship': 1, 'permitJoin': 2, 'depth': 1, 'lqi': 0}, "
-        "{'extPanId': dd:dd:dd:dd:dd:dd:dd:dd, 'extAddr': 00:15:8d:00:03:6b:74:9a, 'nwkAddr': 0x307d, "
+        "{'extPanId': dd:dd:dd:dd:dd:dd:dd:dd, 'extAddr': 00:15:8d:00:03:6b:74:9a, 'nwkAddr': 0x307D, "
         "'deviceType': 2, 'rxOnWhenIdle': 0, 'relationship': 1, 'permitJoin': 2, 'depth': 1, 'lqi': 96}, "
-        "{'extPanId': dd:dd:dd:dd:dd:dd:dd:dd, 'extAddr': 00:15:8d:00:03:2c:28:8d, 'nwkAddr': 0xcc7d, "
+        "{'extPanId': dd:dd:dd:dd:dd:dd:dd:dd, 'extAddr': 00:15:8d:00:03:2c:28:8d, 'nwkAddr': 0xCC7D, "
         "'deviceType': 2, 'rxOnWhenIdle': 0, 'relationship': 1, 'permitJoin': 2, 'depth': 1, 'lqi': 55}"
         "]}" == str(obj)
     )
@@ -527,8 +527,8 @@ def test_mgmt_nwk_update_notify():
     )
     obj = ZpiObject.from_unpi_frame(frame)
     assert (
-        "AREQ ZDO mgmtNwkUpdateNotify tsn: None {'srcaddr': 0xc0e9, 'status': 0, 'scanchannels': 134215680, "
-        "'totaltransmissions': 20, 'transmissionfailures': 15, 'channelcount': 16, "
-        "'energyvalues': [214, 172, 204, 176, 181, 162, 178, 165, 179, 165, 162, 169, 161, 161, 165, 174]"
-        "}" == str(obj)
+        "AREQ ZDO mgmtNwkUpdateNotify tsn: None {'srcaddr': 0xC0E9, 'status': 0, "
+        "'scanchannels': 134215680, 'totaltransmissions': 20, 'transmissionfailures': "
+        "15, 'channelcount': 16, 'energyvalues': [214, 172, 204, 176, 181, 162, 178, "
+        "165, 179, 165, 162, 169, 161, 161, 165, 174]}" == str(obj)
     )

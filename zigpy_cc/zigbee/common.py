@@ -1,9 +1,7 @@
-import enum
-
-from zigpy.types import uint8_t
+from zigpy.types import enum16
 
 
-class NvItemsIds(uint8_t, enum.Enum):
+class NvItemsIds(enum16):
     EXTADDR = 1
     BOOTCOUNTER = 2
     STARTUP_OPTION = 3

@@ -169,7 +169,7 @@ async def test_request(app: application.ControllerApplication):
 
     assert len(app._api._waiters) == 1
     assert (
-        "SREQ ZDO nodeDescReq tsn: 1 {'dstaddr': 0xd04a, 'nwkaddrofinterest': 0x2ea2}"
+        "SREQ ZDO nodeDescReq tsn: 1 {'dstaddr': 0xD04A, 'nwkaddrofinterest': 0x2EA2}"
         == str(app._api.request_raw.call_args[0][0])
     )
     assert res == (0, "message send success")
@@ -208,7 +208,7 @@ async def test_broadcast(app: application.ControllerApplication):
     assert 0 == len(app._api._waiters)
     assert (
         "SREQ ZDO mgmtPermitJoinReq tsn: 45 {'addrmode': <AddressMode.ADDR_BROADCAST: 15>, "
-        "'dstaddr': 0xfffc, 'duration': 60, 'tcsignificance': 0}"
+        "'dstaddr': 0xFFFC, 'duration': 60, 'tcsignificance': 0}"
         == str(app._api.request_raw.call_args[0][0])
     )
     assert (0, "broadcast send success") == res
