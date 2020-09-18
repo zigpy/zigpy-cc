@@ -11,26 +11,27 @@ The goal of this project is to add native support for inexpensive Texas Instrume
 
 zigpy-cc allows Zigpy to interact with Texas Instruments ZNP (Zigbee Network Processor) coordinator firmware via TI Z-Stack Monitor and Test(MT) APIs using an UART/serial interface.
 
-The zigpy-cc library itself contain port code from the [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman/tree/v0.12.24) project (version 0.12.24) for the [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project by Koen Kanters (a.k.a. Koenkk GitHub). The zigbee-herdsman library itself in turn was originally a fork and rewrite of the [zigbee-shepherd](https://github.com/zigbeer/zigbee-shepherd) library by the [Zigbeer](https://github.com/zigbeer) project. Therefore, if code improvements or bug-fixes gets commited to the [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman) library then it could, in theory, also be possible to port some or many of those code improvements to this zigpy-cc library for its benifit.
+The zigpy-cc library itself initially began as a code port from the [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman/tree/v0.12.24) project (version 0.12.24) for the [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project by Koen Kanters (a.k.a. Koenkk GitHub). The zigbee-herdsman library itself in turn was originally a fork and rewrite of the [zigbee-shepherd](https://github.com/zigbeer/zigbee-shepherd) library by the [Zigbeer](https://github.com/zigbeer) project. Therefore, if the upstream code improvements or bug-fixes gets commited to the [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman) library then it could, in theory, also be possible to downport some or many of those upstream code improvements to this zigpy-cc library for its benifit.
 
 ## WARNING!!! - Work in progress
 Disclaimer: This software is provided "AS IS", without warranty of any kind. The zigpy-cc project is under development as WIP (work in progress), it is not fully working yet. 
 
 # Hardware requirement
-The zigpy-cc library is currently being tested by developers with Texas Instruments CC2531 and CC2652R based adapters/boards as as reference hardware but it should in theory be possible to get it working with work most USB-adapters and GPIO-modules based on Texas Instruments CC Zigbee radio module chips hardware. Note that unless you bought pre-flashed with correct custom firmware you will also have to flash the chip a compatible Z-Stack coordinator firmware before you can use the hardware, please read the firmware requirement section below.
+The zigpy-cc library has been tested by developers with Texas Instruments CC2531 and CC2652R based adapters/boards as reference hardware but it should in theory be possible to get it working with work most USB-adapters and GPIO-modules based on Texas Instruments CC Zigbee radio module chips hardware with Z-Stack Home 1.2.x or Z-Stack 3.x.x firmware. Note that unless you recieved your adapter pre-flashed with a compatible firmware you will also have to flash the chip a compatible Z-Stack coordinator firmware before you can use the hardware, please be sure to read the firmware requirement section further down below.
 
-## Supported reference hardware being tested by zigpy-cc developers
-  - [CC2531 USB stick hardware flashed with custom Z-Stack 1.2 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC2652R USB stick and dev board hardware flashed with custom Z-Stack 3.x coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  
- ## Supported hardware not activly tested by zigpy-cc developers
-  - [CC2530 + CC2591 USB sticks and dev board hardware flashed with custom Z-Stack 1.2 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC2530 + CC2592 USB sticks and dev board hardware flashed with custom Z-Stack 1.2 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC2538 + CC2592 dev board hardware flashed with custom Z-Stack 3.0 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC1352P-2 USB sticks and dev board hardware flashed with custom Z-Stack 3.0 coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC2652P USB stick and dev board hardware flashed with custom Z-Stack 3.x coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  - [CC2652RB USB stick and dev board hardware flashed with custom Z-Stack 3.x coordinator firmware from Zigbee2mqtt project](https://www.zigbee2mqtt.io/getting_started/what_do_i_need.html)
-  
+## Known working Zigbee radio modules from Texas Instruments
+
+- **Texas Instruments with Z-Stack Home 1.2.x firmware**
+  - [CC2531 USB stick hardware flashed with Z-Stack Home 1.2.x firmware](https://www.zigbee2mqtt.io/information/supported_adapters)
+  - [CC2530 + CC2591/CC2592 USB stick hardware flashed with Z-Stack Home 1.2.x firmware](https://www.zigbee2mqtt.io/information/supported_adapters)
+  - [CC2538 + CC2592 dev board hardware flashed with Z-Stack Home 1.2.x firmware](https://www.zigbee2mqtt.io/information/supported_adapters)
+
+## Experimental support for newer Zigbee radio modules
+
+- **Texas Instruments based radios with Z-Stack 3.x.x firmware**
+  - [CC2652P/CC2652R/CC2652RB USB stick and dev board hardware flashed with Z-Stack 3.x.x firmware](https://www.zigbee2mqtt.io/information/supported_adapters)
+  - [CC1352P/CC1352R USB stick and dev board hardware flashed with Z-Stack 3.x.x firmware](https://www.zigbee2mqtt.io/information/supported_adapters)
+
 ## Texas Instruments Chip Part Numbers
 Texas Instruments (TI) has quite a few different wireless MCU chips and they are all used/mentioned in open-source Zigbee world which can be daunting if you are just starting out. Here is a quick summary of part numbers and key features.
 
