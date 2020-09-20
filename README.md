@@ -13,6 +13,9 @@ zigpy-cc allows Zigpy to interact with Texas Instruments ZNP (Zigbee Network Pro
 
 The zigpy-cc library itself initially began as a code port from the [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman/tree/v0.12.24) project (version 0.12.24) for the [Zigbee2mqtt](https://www.zigbee2mqtt.io/) project by Koen Kanters (a.k.a. Koenkk GitHub). The zigbee-herdsman library itself in turn was originally a fork and rewrite of the [zigbee-shepherd](https://github.com/zigbeer/zigbee-shepherd) library by the [Zigbeer](https://github.com/zigbeer) project. Therefore, if the upstream code improvements or bug-fixes gets commited to the [zigbee-herdsman](https://github.com/Koenkk/zigbee-herdsman) library then it could, in theory, also be possible to downport some or many of those upstream code improvements to this zigpy-cc library for its benifit.
 
+## Migration to v0.5 (HA v0.115)
+See: [Migration guide](./MIGRATION.md)
+
 ## WARNING!!! - Work in progress
 Disclaimer: This software is provided "AS IS", without warranty of any kind. The zigpy-cc project is under development as WIP (work in progress), it is not fully working yet. 
 
